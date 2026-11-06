@@ -49,6 +49,21 @@ paragraphs interrupted by figures, and pin listing annotations to their code lin
 token budget, and each one carries deterministic features: key terms, introduced terms, commands with
 output sizes, listings with their YAML kinds, hosts/IPs/ports and a difficulty tier for model routing.
 
+## The harness (model calls)
+
+Paste your DeepSeek key into `.env` (gitignored; `.env.example` shows the variables). Models, prices and
+per-node settings are in `pipeline/config.yaml`.
+
+```bash
+./run.sh python -m evals.prepare                                  # rebuild the writer prompts
+./run.sh python -m pipeline.harness.run_eval --run ds-1           # 5 cases on deepseek-flash: write -> validate -> fix
+./run.sh python -m pipeline.harness.run_eval --run dry --replay opus-2   # same graph, no API: replays saved outputs
+```
+
+Each case's drafts land in `sources/evals/<case>/out/<run>.v<N>.md`; the cost ledger and report in
+`runs/<run>/` (`ledger.jsonl`, `report.md`). Calls are cached in `.cache/llm/`, so re-running only pays for
+prompts that changed (`--no-cache` to force). `--budget` caps a run's spend.
+
 ## The app (library + reader)
 
 FastAPI serves the library API, the chapter pages and the built frontend (React + Vite + TypeScript).

@@ -26,7 +26,7 @@ sub-headings (often in small caps) become `####` in sentence case.
 | `:::code src=FILE hl=8,11-12` | empty | FILE must exist in the chapter's `files/`; `hl` = lines to highlight |
 | `:::snippet yaml\|http\|sql\|bash\|json\|text` | verbatim text | for partial configs, output fragments, requests |
 | `:::term catchup=12.2.1` | `$ command` lines | see "Terminals" below |
-| `:::quiz` | `? q` / `- wrong` / `+ right` / `> why` | exactly one `+` |
+| `:::quiz` | `? q` / `- wrong` / `+ right` / `> why` | one question per block, exactly one `+` |
 | `::::tabs` | `@ Label` lines start panels | four colons, so the panels can contain `:::` blocks |
 | `:::recap` | Markdown list | end of a longer section |
 | `:::diagram flow` / `:::diagram sequence` | YAML (below) | `:::diagram svg` is frontier-only |
@@ -43,7 +43,8 @@ $ kubectl get ing
 ```
 
 Each `$` line becomes a clickable chip in the shared shell. `catchup` adds a button that puts the shell
-in the state the reader would have at the start of that section.
+in the state the reader would have at the start of that section; use it only with a stateful shell plugin
+(the `basic` shell has no state to catch up to).
 
 Lines after a `$` command are its **canned output**. Give output only for commands the chapter's shell
 plugin does **not** simulate (the brief says which plugin and what it handles; the `basic` shell

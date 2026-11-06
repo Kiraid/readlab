@@ -5,7 +5,7 @@
 //   node tools/eval-score.mjs <case-dir> <output.md>
 //
 // must (pass/fail): builds without format errors, no copied runs, every listing shown, commands name real files.
-// should (0-100):   coverage, prose length within the brief's budget, visuals, quizzes, terminals, and whether
+// should (0-100):   coverage, prose length 85–115% of the source's prose, visuals, quizzes, terminals, and whether
 //                   it used one of the interactive pieces the case invites. Creative choices are not scored.
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 import { buildChapter } from './build.mjs';
 import { parseBlocks, parseSection } from './format/parse.mjs';
+import { LENGTH_RATIO } from './format/checks.mjs';
 import { validateChapter } from './validate.mjs';
 
 function inventory(raw) {
@@ -56,12 +57,13 @@ export function scoreOutput(caseDir, outputPath) {
     listings_shown: errs('listing') === 0,
     files_exist: errs('files') === 0,
   };
-  const [lo, hi] = (String(kase.brief).match(/Budget:\s*(\d+)\s*-\s*(\d+)/) || []).slice(1).map(Number);
-  const words = r.metrics.words ?? 0;
+  // length follows the source: full marks at 85–115% of its prose, falling off proportionally outside
+  const ratio = r.metrics.length_ratio;
+  const [lo, hi] = LENGTH_RATIO;
   const visuals = inv.diagrams + inv.widgets;
   const should = {
     coverage: Math.min(1, (r.metrics.coverage ?? 0) / 100 / (exp.coverage ?? 0.6)),
-    length: lo ? (words >= lo * 0.85 && words <= hi * 1.15 ? 1 : words < lo ? words / lo : hi / words) : 1,
+    length: ratio == null ? 1 : ratio < lo ? ratio / lo : ratio > hi ? hi / ratio : 1,
     visuals: Math.min(1, visuals / (exp.visual_min ?? 1)),
     quizzes: Math.min(1, inv.quizzes / (exp.quiz_min ?? 1)),
     terminals: exp.terminal_min ? Math.min(1, inv.terminals / exp.terminal_min) : 1,
@@ -80,7 +82,22 @@ export function scoreOutput(caseDir, outputPath) {
   const stem = basename(outputPath).replace(/\.md$/, '');
   writeFileSync(join(out, `${stem}.score.json`), JSON.stringify(result, null, 2));
   if (!build.errors.length) writeFileSync(join(out, `${stem}.html`), build.html);
+  result.widget_requests = logWidgetRequests(kase.id, stem, build.requests || []);
   return result;
+}
+
+// Widgets a writer asked for (:::widget-request) are logged, not built: evals/widget-requests.jsonl, one JSON
+// object per line, keyed by case + run + name so re-scoring the same output doesn't duplicate entries.
+export const REQUEST_LOG = fileURLToPath(new URL('../evals/widget-requests.jsonl', import.meta.url));
+
+function logWidgetRequests(caseId, run, requests) {
+  const rows = existsSync(REQUEST_LOG) ? readFileSync(REQUEST_LOG, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) : [];
+  const key = (r) => `${r.case}|${r.run}|${r.name}`;
+  const fresh = requests.map(({ file, line, ...req }) => ({ logged: new Date().toISOString().slice(0, 10), case: caseId, run, ...req }));
+  const keep = rows.filter((r) => !(r.case === caseId && r.run === run));
+  const all = [...keep, ...fresh];
+  if (fresh.length || keep.length !== rows.length) writeFileSync(REQUEST_LOG, all.map((r) => JSON.stringify(r)).join('\n') + (all.length ? '\n' : ''));
+  return fresh.map(key);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -92,7 +109,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   console.log(`  should: ${Object.entries(r.should).map(([k, v]) => `${k} ${Math.round(v * 100)}%`).join('  ')}`);
   const m = r.metrics;
   console.log(`  uses:   ${m.diagrams} diagrams, ${m.widgets} widgets (${m.widget_names.join(', ') || '-'}), ${m.quizzes} quizzes, ${m.terminals} terminals, ${m.code} listings, ${m.callouts} callouts, ${m.tables} tables`);
-  console.log(`  text:   ${m.words} words (source ${m.source_words}), coverage ${m.coverage}%, copy overlap ${m.copy_overlap}%`);
+  console.log(`  text:   ${m.words} words, ${m.retell_words} without quizzes/recaps (source ${m.source_words}, ${Math.round((m.length_ratio ?? 0) * 100)}%), coverage ${m.coverage}%, paragraphs ${m.paragraphs_judged - m.paragraphs_missing}/${m.paragraphs_judged}, copy overlap ${m.copy_overlap}%`);
   for (const i of r.issues) console.log(`  ${i}`);
+  if (r.widget_requests.length) console.log(`  widget requests logged to evals/widget-requests.jsonl: ${r.widget_requests.map((k) => k.split('|')[2]).join(', ')}`);
   process.exit(r.pass ? 0 : 1);
 }

@@ -25,6 +25,13 @@ export function autofix(text, { files = {} } = {}) {
     .replace(/^\s*(?:Q|Question)\s*[:.]\s*/gim, '? ')
     .replace(/^\s*(?:Explanation|Why|Answer)\s*[:.]\s*/gim, '> ') + close));
 
+  // one :::quiz block holding several "? question" lines becomes one block per question
+  step('quiz blocks split one question each', (s) => s.replace(/^(:::quiz[^\n]*)\n([\s\S]*?)^:::\s*$/gm, (m, open, body) => {
+    const parts = body.split(/^(?=\?\s)/m).filter((p) => p.trim());
+    if (parts.length < 2) return m;
+    return parts.map((p) => `${open}\n${p.replace(/\s+$/, '')}\n:::`).join('\n\n');
+  }));
+
   // inside :::term, other prompt characters become "$ "
   step('terminal prompts normalised', (s) => s.replace(/^(:::term[^\n]*\n)([\s\S]*?)(^:::\s*$)/gm, (m, open, body, close) => open + body
     .replace(/^\s*(?:❯|%|>|\$)\s*(?=\S)/gm, '$ ') + close));

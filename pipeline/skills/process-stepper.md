@@ -25,7 +25,8 @@ caption: The control loop.
 ```
 
 Rules:
-- 3–6 steps; one idea per step; narration ≤ 2 short sentences.
+- 3–6 steps; one idea per step; narration ≤ 2 short sentences. Don't number them ("Step 1.") yourself:
+  the stepper shows the numbers.
 - A loop returns to an earlier element in the last step and says so.
 - Everything a step mentions must be highlighted in that step (list its node and edge ids).
 - Elements not in any step stay visible the whole time: use that for context (the cluster, the user).

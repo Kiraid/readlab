@@ -8,7 +8,7 @@ import { writeFileSync } from 'node:fs';
 import { scoreOutput } from '../eval-score.mjs';
 import { validateChapter } from '../validate.mjs';
 import { autofix } from './autofix.mjs';
-import { copyRuns, strayNumbers, words } from './checks.mjs';
+import { checkSection, copyRuns, distinctiveTokens, paragraphCoverage, strayNumbers, words } from './checks.mjs';
 import { parseSection } from './parse.mjs';
 
 const FIX = fileURLToPath(new URL('../fixtures/validate', import.meta.url));
@@ -86,14 +86,96 @@ test('eval scorer: must checks pass/fail and the soft score reflects what the se
   mkdirSync(join(dir, 'out'), { recursive: true });
   cpSync(join(FIX, 'files'), join(dir, 'files'), { recursive: true });
   cpSync(join(FIX, 'source.json'), join(dir, 'source.json'));
-  writeFileSync(join(dir, 'case.yaml'), 'id: fixture\ntitle: Running the web app\nshell: basic\nbrief: "Teach it. Budget: 60-200 words of prose."\nexpect: { visual_min: 1, quiz_min: 1, widget_any: [timeline] }\n');
+  writeFileSync(join(dir, 'case.yaml'), 'id: fixture\ntitle: Running the web app\nshell: basic\nbrief: "Teach it at the length of the source."\nexpect: { visual_min: 1, quiz_min: 1, widget_any: [timeline] }\n');
   const good = scoreOutput(dir, join(FIX, 'good', '01-good.md'));
   assert.equal(good.pass, true);
   assert.deepEqual(good.must, { builds: true, no_copy: true, listings_shown: true, files_exist: true });
   assert.equal(good.should.invited_widget, 0);
   assert.ok(good.score >= 60 && good.score < 100, `score ${good.score}`);
+  assert.equal(good.should.length, 1); // 111% of the source's prose
+  const thin = scoreOutput(dir, join(FIX, 'thin', '01-thin.md'));
+  assert.ok(thin.should.length < 0.5, `length ${thin.should.length}`);
   const bad = scoreOutput(dir, join(FIX, 'bad', '01-bad.md'));
   assert.equal(bad.pass, false);
   assert.equal(bad.must.no_copy, false);
   assert.equal(bad.must.listings_shown, false);
+});
+
+test('autofix splits a quiz block with several questions; headings are not copy-checked', () => {
+  const quiz = ':::quiz\n? One?\n- a\n+ b\n> why\n\n? Two?\n+ c\n- d\n> because\n:::\n';
+  const { text, fixes } = autofix(`---\nid: "1"\ntitle: T\n---\n${quiz}`);
+  assert.ok(fixes.includes('quiz blocks split one question each'));
+  assert.equal((text.match(/^:::quiz$/gm) || []).length, 2);
+  const src = { blocks: [{ kind: 'subheading', text: 'Changing the ports exposed by the service object today', meta: {} }], features: {} };
+  const r = checkSection('---\nid: "1"\ntitle: T\n---\n#### Changing the ports exposed by the service object today\n\nOwn words here.\n', { source: src });
+  assert.equal(r.errors.filter((e) => e.code === 'copy').length, 0);
+});
+
+test('distinctive tokens: numbers, code, names and rarer words; single digits and everyday words are not', () => {
+  const toks = distinctiveTokens('The `web` pod in PostgreSQL listens on port 8080 with 3 replicas, which protects users.');
+  const keys = toks.map((t) => `${t.kind}:${t.key}`);
+  assert.ok(keys.includes('code:web'));
+  assert.ok(keys.includes('number:8080'));
+  assert.ok(keys.includes('term:postgre'));
+  assert.ok(keys.includes('word:replica'));
+  assert.ok(!keys.some((k) => k.endsWith(':3') || k.endsWith(':which')));
+});
+
+test('paragraph coverage: a section that drops a source paragraph gets a warning quoting at most six words', () => {
+  const r = validateChapter(chapterWith('thin')).results[0];
+  const paras = r.warnings.filter((w) => w.code === 'paragraph');
+  assert.ok(paras.length >= 1);
+  const missing = paras.find((w) => /para 3\/4/.test(w.message));
+  assert.ok(missing, paras.map((w) => w.message).join('\n'));
+  const quoted = missing.message.match(/\("([^"]*)"\)/)[1].replace(' …', '');
+  assert.ok(quoted.split(' ').length <= 6, quoted);
+  assert.ok(r.metrics.paragraphs_missing >= 1 && r.metrics.paragraphs_judged === 3);
+  // the good section covers every judged paragraph
+  const good = validateChapter(chapterWith('good')).results[0];
+  assert.equal(good.metrics.paragraphs_missing, 0);
+  assert.ok(paragraphCoverage(readFileSync(join(FIX, 'good', '01-good.md'), 'utf8'), JSON.parse(readFileSync(join(FIX, 'source.json'), 'utf8')).sections[0])
+    .every((p) => p.ratio >= 0.3));
+});
+
+test('length follows the source: under 85% may have cut content, over 115% is padding, front matter words override', () => {
+  const thin = validateChapter(chapterWith('thin')).results[0];
+  assert.match(thin.warnings.find((w) => w.code === 'budget').message, /may have cut content/);
+  const src = JSON.parse(readFileSync(join(FIX, 'source.json'), 'utf8')).sections[0];
+  const files = { 'app.yaml': readFileSync(join(FIX, 'files', 'app.yaml'), 'utf8') };
+  const good = readFileSync(join(FIX, 'good', '01-good.md'), 'utf8');
+  const padded = good + '\nIn other words, you get a lot of operational comfort from this: nobody has to babysit the pods at night, '
+    + 'restarts happen on their own, and teams can sleep while the controller keeps reconciling what they asked for.\n';
+  const p = checkSection(padded, { source: src, files });
+  assert.ok(p.metrics.length_ratio > 1.15, `ratio ${p.metrics.length_ratio}`);
+  assert.match(p.warnings.find((w) => w.code === 'budget').message, /padding/);
+  // quizzes and recaps are the page's own furniture, not padding: they don't count toward the length
+  const quizzed = `${good}
+:::quiz
+? What does a failing readiness probe do to a pod, and what does it leave alone entirely?
++ it stops traffic to the pod but leaves the running container in place
+- it restarts the container straight away and also stops all traffic
+> Readiness only gates traffic; restarting the container is the job of the liveness probe in the table.
+:::
+
+:::recap
+- A Deployment keeps three replicas of web alive and replaces any that vanish.
+- The readiness probe gates traffic; rolling updates swap pods a few at a time.
+:::
+`;
+  const q = checkSection(quizzed, { source: src, files });
+  const plain = checkSection(good, { source: src, files });
+  assert.ok(q.metrics.words / plain.metrics.retell_words > 1.15, `words ${q.metrics.words}`);
+  assert.equal(q.metrics.retell_words, plain.metrics.retell_words);
+  assert.equal(q.warnings.filter((w) => w.code === 'budget').length, 0);
+  const pinned = padded.replace('title: Running the web app', 'title: Running the web app\nwords: [50, 200]');
+  assert.equal(checkSection(pinned, { source: src, files }).warnings.filter((w) => w.code === 'budget').length, 0);
+});
+
+test('a copied run that is mostly names or numbers is a warning, not an error', () => {
+  const src = 'It is the default in Oracle 11g, PostgreSQL, SQL Server 2012, MemSQL and many other databases.';
+  const out = 'This level ships as the default in Oracle 11g, PostgreSQL, SQL Server 2012, MemSQL and others.';
+  const { runs } = copyRuns(out, src);
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0].names, true);
+  assert.equal(copyRuns('a slowdown in one part of the application spreads to the rest of it', 'a slowdown in one part of the application spreads to the rest of it').runs[0].names, false);
 });

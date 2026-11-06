@@ -10,7 +10,7 @@ brief: |
   algorithm from root to leaf, including how range scans continue along sibling links. Mention the B+-Tree
   distinction the book makes (values only in leaves) and its note about which databases use it.
   The book's figures show a node hierarchy and how separator keys bound each subtree.
-  Budget: 500-800 words of prose.
+  Length: match the source's prose (85-115% of its words).
 expect:
   coverage: 0.6
   visual_min: 2

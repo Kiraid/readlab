@@ -9,9 +9,14 @@ snippet. Judge whether the choices made **work**, not whether they match the ide
 
 Score each criterion 1–5 and give one sentence of reason each.
 
+For **faithful**, read the source paragraph by paragraph next to the section. Padding counts as hard as
+omission: a section that adds two paragraphs of the writer's own explanation loses as much as one that drops
+two of the author's. The validator's `paragraph` and `budget` warnings point at likely gaps and padding; check
+them, don't trust them blindly.
+
 | Criterion | 5 means | 1 means |
 |---|---|---|
-| **faithful** | everything the snippet teaches is there, in order, correct; nothing invented | important points missing or wrong, or facts not in the source |
+| **faithful** | nothing cut, nothing added, same order, same depth: every paragraph's point, example, number and caveat is there and correct, each given the weight the author gave it; no explanations, background or asides the author didn't write (one short clarification the brief asked for is fine) | points missing, compressed or wrong; or padded with explanation, background or "why it matters" notes the source doesn't have; or facts not in the source |
 | **clear** | a reader new to the topic gets it on first read; the key mechanism is explained, not just named | dense, vague, or assumes what it should teach |
 | **visual** | the diagrams show the mechanism (not decoration); labels readable; steps tell a story | no visual where one was obviously needed, or visuals that confuse |
 | **interactive** | the lab/terminal/quiz makes the reader *do* the thing the section is about; quizzes test understanding | interaction is filler, or trivia quizzes |

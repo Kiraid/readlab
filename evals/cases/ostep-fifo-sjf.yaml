@@ -11,7 +11,7 @@ brief: |
   average-turnaround numbers; show the arithmetic. Turnaround time is defined earlier in the chapter as
   completion time minus arrival time. The book's figures are Gantt-style charts of each schedule.
   Include the preemptive vs non-preemptive aside and the "ten items or less" principle in your own words.
-  Budget: 450-750 words of prose.
+  Length: match the source's prose (85-115% of its words).
 expect:
   coverage: 0.6
   visual_min: 2

@@ -11,6 +11,7 @@ reference/*/sections/
 # Secrets
 .env
 .env.*
+!.env.example
 
 # Python / Node
 __pycache__/
@@ -28,3 +29,6 @@ reference/*/js/files.js
 
 # Generated catalog page (node tools/catalog.mjs)
 runs/catalog/
+
+# Eval run reports and ledgers stay local for now (their error messages quote up to six source words)
+runs/*/

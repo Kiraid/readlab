@@ -79,3 +79,5 @@ figure.diagram > svg.dsl-svg { margin: 0 auto; }
 .tl-head { stroke: var(--accent); stroke-width: 2; }
 .tl-mark { stroke: var(--secret); stroke-width: 1.4; stroke-dasharray: 3 3; }
 .cs-unit-on { opacity: 1; } .cs-more { fill: var(--faint); font: 11px var(--mono); }
+.r-ok { fill: color-mix(in oklab, var(--ok) 14%, var(--panel)); stroke: var(--ok); }
+.rt-ok { fill: var(--ok); }

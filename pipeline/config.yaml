@@ -1,0 +1,28 @@
+# Harness configuration: providers, prices, and which model each node uses.
+# Prices are USD per 1M tokens, copied from the providers' docs on the date shown. Re-check before relying on
+# them; the ledger computes cost from this table, so a wrong price means a wrong report.
+
+providers:
+  deepseek:
+    kind: openai-compatible
+    base_url: https://api.deepseek.com
+    key_env: DEEPSEEK_API_KEY
+    # https://api-docs.deepseek.com/quick_start/pricing.md, read 2026-11-06. Off-peak is half of peak.
+    # Peak hours: 01:00-04:00 and 06:00-10:00 UTC, Monday to Friday (except Chinese public holidays).
+    prices:
+      deepseek-flash:  {cache_hit: 0.006, cache_miss: 0.30, output: 1.20, offpeak_factor: 0.5}
+      deepseek-v4-pro: {cache_hit: 0.044, cache_miss: 1.32, output: 3.96, offpeak_factor: 0.5}
+    peak_utc: [[1, 4], [6, 10]]   # weekdays only
+
+  replay:
+    kind: replay   # returns stored outputs; for testing the graph without an API key
+
+# Model per node. `thinking: false` turns reasoning off (DeepSeek: thinking {type: disabled}).
+nodes:
+  write: {provider: deepseek, model: deepseek-flash, thinking: true, max_tokens: 32000}
+  fix:   {provider: deepseek, model: deepseek-flash, thinking: false, max_tokens: 8000}
+
+run:
+  max_fix_rounds: 2          # validate -> fix -> validate, at most this many fixes
+  budget_usd: 2.00           # a run stops starting new cases once its ledger passes this
+  timeout_s: 600

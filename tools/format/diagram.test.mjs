@@ -95,3 +95,16 @@ test('schema subset', () => {
     'config.a: must be ≥ 1', 'config.b: must be one of x, y (got "z")', 'config.c: at most 1 item(s)',
     'config.c[1]: expected string, got integer', 'config: unknown field "d" (allowed: a, b, c)']);
 });
+
+test('values containing ": " are quoted when the body would not parse otherwise', async () => {
+  const { repairYaml } = await import('./render.mjs');
+  const body = 'nodes:\n  old: object@1,1 "nonleaf node" "full: N + 1 pointers"\n  p: object@0,1 "parent"\nedges:\n  - old > p flow "Host: x"\nsteps:\n  - old: Found: the key is there.\n  - p\n';
+  assert.throws(() => parse(body));
+  const fixed = parse(repairYaml(body));
+  assert.equal(fixed.nodes.old, 'object@1,1 "nonleaf node" "full: N + 1 pointers"');
+  assert.deepEqual(fixed.steps[0], { old: 'Found: the key is there.' });
+  const { spec, errs } = flow(repairYaml(body));
+  assert.deepEqual(errs, []);
+  assert.equal(spec.nodes[0].sub, 'full: N + 1 pointers');
+  assert.equal(spec.edges[0].label, 'Host: x');
+});

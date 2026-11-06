@@ -27,12 +27,32 @@ const CALLOUTS = {
   sidebar: ['note', null],
 };
 
+/**
+ * The most common YAML slip in diagram and widget bodies: a value that contains ": " (a sub-label
+ * "full: N + 1 pointers", a step narration with a colon). YAML reads it as a nested map and the whole
+ * body fails. Quote such values. Only used when the body doesn't parse as written.
+ */
+export function repairYaml(text) {
+  return text.split('\n').map((line) => {
+    const m = /^(\s*(?:-\s+)?)([^\s:'"{}[\]#][^:'"]*?):[ \t]+(.+?)\s*$/.exec(line);
+    if (!m) return line;
+    const v = m[3];
+    if (/^["'{[|>&*!]/.test(v) && !/^"[^"]*"\s+\S/.test(v)) return line; // already quoted, a flow collection or a block scalar
+    if (!/:(\s|$)/.test(v) && !/\s#/.test(v)) return line;             // nothing YAML would misread
+    return `${m[1]}${m[2]}: '${v.replace(/'/g, "''")}'`;
+  }).join('\n');
+}
+
 function yamlBody(d, ctx) {
   try {
     return parseYaml(d.body) ?? {};
   } catch (e) {
-    ctx.error(`:::${d.name} body is not valid YAML: ${e.message.split('\n')[0]}`, d.line);
-    return {};
+    try {
+      return parseYaml(repairYaml(d.body)) ?? {};
+    } catch (e2) {
+      ctx.error(`:::${d.name} body is not valid YAML: ${e.message.split('\n')[0]}`, d.line);
+      return {};
+    }
   }
 }
 

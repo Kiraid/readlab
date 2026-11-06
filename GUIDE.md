@@ -6,6 +6,140 @@
 
 ---
 
+## Where we are (2026-11-06)
+
+### Done
+
+| Piece | What exists | Where |
+|---|---|---|
+| Ingestion (step 1) | PDF → sections → chunks + features, no model; works on 4 differently typeset books (KiA, OSTEP, Database Internals, DDIA) | `pipeline/ingest/`, `books/*/book.yaml` |
+| Format + builder (step 3a) | Markdown with `:::` blocks → one self-contained HTML page, line-numbered errors | `tools/build.mjs`, `tools/format/` |
+| Diagram renderer (3b) | `flow` + `sequence` DSL; the renderer owns layout, labels, packets, steps | `tools/format/diagram.mjs`, `engine/js/diagram.js` |
+| Engine (3c) | ported from ch13: terminal, core blocks, widget registry; shell plugins `basic`, `kubectl-ingress`, `kubectl-gateway` | `engine/` |
+| Widget catalog (3d) | 8 global widgets, each with code, schema, example, skill | `engine/widgets/` |
+| Skills (3e) | the writer contract (`FORMAT.md`) + 14 pattern skills incl. OS and SQL | `pipeline/skills/` |
+| Validator (step 4) | copy, coverage, per-paragraph coverage, listings, files, numbers, inventory, length vs source; autofix | `tools/validate.mjs`, `tools/format/checks.mjs` |
+| Eval set (step 5, part) | 5 cases from 4 books; prompt assembly exactly as the harness sends it; scorer; judge rubric | `evals/`, `pipeline/prompts/`, `tools/eval-score.mjs` |
+| App (early) | FastAPI library API + chapter serving, React/TypeScript library, book and reader pages | `app/` |
+| Harness, first slice | LangGraph per section: write → validate → fix (find/replace edits as JSON, fallback to one rewrite; copy errors quote the writer's own sentence); DeepSeek + replay providers, response cache, JSONL cost ledger with peak/off-peak pricing; eval runner with budget cap | `pipeline/harness/`, `pipeline/llm/`, `pipeline/config.yaml`, `.env` |
+
+### First writer evals (Opus, one call per case, no tools, only the harness prompt)
+
+| Case | Book | Must | Score | Used | Output tokens* | Est. $ at Opus prices |
+|---|---|---|---|---|---|---|
+| ostep-fifo-sjf | OSTEP | **pass** | 96 | 4 timelines, table, 3 callouts, 2 quizzes | 8.7k | ~0.22 |
+| kia-create-service | KiA | copy ✗ (2 runs) | 94 | listing, stepper, 3 terminals, toggle-compare, 7 callouts, table | 20.7k | ~0.46 |
+| ddia-read-committed | DDIA | copy ✗ (2 runs) | 96 | 2 timelines, toggle-compare, 4 callouts, 2 quizzes | 18.1k | ~0.40 |
+| dbi-btree-lookup | DBI | copy ✗ (2 runs) | 90 | 2 diagrams (stepper), table, 2 quizzes | 26.6k | ~0.58 |
+| dbi-btree-split | DBI | copy ✗ (2 runs) | 91 | 3 steppers, table, 2 quizzes | 29.2k | ~0.63 |
+
+\* thinking included. Input per call ≈ 11k tokens, of which the ~9k system prompt is the cached prefix.
+
+What the runs showed:
+- **Everything builds and renders**: no console errors, no overlapping diagram text, no failed widgets, full
+  key-term coverage on 4 of 5. Visual choices were sensible (timelines for schedules and transaction
+  interleavings, steppers for tree walks and splits). No writer asked for a new widget (`evals/widget-requests.jsonl` stays empty).
+- **The one real weakness is copying**: 4 of 5 sections kept two phrases of 8–12 words from the source
+  (definitions, a procedure's steps, a figure description). The fix is a fix step that sends exactly those
+  errors back for a rewrite (harness, below) and a stronger line in the writer prompt; re-measure after.
+- **Toolkit fixes made from the runs**: headings exempt from the copy check; copied runs that are mostly names
+  or numbers are a warning; autofix splits multi-question quiz blocks; visual widgets count as figures;
+  timelines accept an `ok` role; format-guide lines on one question per quiz, catch-up only with stateful
+  shells, and not numbering stepper steps by hand.
+- **Checker blind spots seen**: close paraphrases under 8 words (e.g. the book's jokes) pass; the numbers check
+  flags correct arithmetic when ingestion dropped a formula, and flags invented example keys (fine to show
+  the judge).
+
+### Second writer run: retell the author, nothing cut, nothing added (`opus-2`)
+
+Changed before the run: the writer prompt and `faithful-coverage` now say the author's explanation is the
+source of truth (every paragraph's point, example, number and caveat, in order, at the author's depth; no
+summarising, no added background or "why it matters"; at most one clarification, only when the brief asks;
+own sentences). Length is tied to the source instead of a brief's `Budget:` line: prose 85–115% of the
+source's prose (validator `budget` warning, scorer `length`). New validator check `paragraph`: per source
+paragraph, the weighted share of its distinctive tokens (numbers, code, names, rarer words) found in the
+section; under 0.3 is a warning. The rubric's **faithful** now scores padding as hard as omission.
+
+Both runs scored with the same (new) checker; run 1's original scores were 96 / 94 / 96 / 90 / 91.
+
+| Case | Must (1 → 2) | Score (1 → 2) | Prose vs source, retelling only (all prose) | Key-term coverage | Paragraph warnings | Copy runs (error) |
+|---|---|---|---|---|---|---|
+| ostep-fifo-sjf | pass → **fail** | 95 → 98 | 68% → 99% (96% → 120%) | 88% → 100% | 0/18 → 0/18 | 0 → 1 |
+| kia-create-service | fail → fail | 94 → 89 | 86% → 95% (105% → 102%) | 100% → 100% | 0/17 → 0/17 | 2 → 2 |
+| ddia-read-committed | fail → fail | 99 → 97 | 90% → 90% (119% → 116%) | 100% → 100% | 0/6 → 1/6 | 2 → 1 |
+| dbi-btree-lookup | fail → fail | 94 → 78 | 94% → 96% (124% → 119%) | 100% → 89% | 0/6 → 0/6 | 2 → 2 |
+| dbi-btree-split | fail → fail | 93 → 100 | 87% → 101% (122% → 135%) | 75% → 75% | 1/5 → 0/5 | 2 → 2 |
+
+What it showed:
+- **The "padding" in run 1 was quizzes and recaps, not extra explanation.** Counting only the retelling,
+  run 1 sat at 68–94% of the source (OSTEP had dropped about a third); run 2 sits at 90–101% in all five. So the
+  length check now counts prose without `:::quiz` and `:::recap` (`metrics.retell_words`); `metrics.words` still
+  has everything, and the copy check still covers quizzes and recaps.
+- **Copying didn't move**: 4 cases still have two 8–10 word runs and OSTEP now has one (a workload's arrival
+  times). A prompt line alone won't fix it; the harness fix node that sends the copy errors back for a rewrite is still needed.
+- **Fewer visuals in two cases**: KiA used no widget (a diagram, terminals and callouts) and DBI lookup used one
+  diagram where the case expects two, which is most of their score drop. Worth watching: "don't add" may be
+  read as "don't add visuals".
+- **Paragraph check**: one warning per run. The DDIA one is a false positive (that paragraph is retold; its
+  distinctive tokens are everyday words plus a word split by a page break). It is a pointer for the judge, not
+  a gate.
+- Everything builds and renders (no console errors, no overlapping diagram labels, every widget drawn).
+- Run 2 used the prompt from just before "(quizzes and recaps don't count)" was added to the length line;
+  the prompts in `sources/evals/` were regenerated after.
+
+### First harness run: DeepSeek flash (`ds-1`, 2026-11-06)
+
+The real pipeline, not Claude Code: `python -m pipeline.harness.run_eval --run ds-1`. Writer `deepseek-flash`
+with thinking, fixer `deepseek-flash` without; write → validate → fix (up to 2 rounds). Report and ledger in
+`runs/ds-1/`.
+
+| Case | Must | Score | Fix rounds | Retelling vs source | Coverage | Visuals | Out tokens (reasoning) | $ | s |
+|---|---|---|---|---|---|---|---|---|---|
+| ostep-fifo-sjf | pass | 98 | 2 | 96% | 100% | 4 timelines, 2 quizzes | 12.8k (9.8k) | 0.0105 | 74 |
+| kia-create-service | pass | 89 | 1 | 89% | 100% | diagram, 3 terminals, 2 quizzes | 9.3k (6.6k) | 0.0096 | 54 |
+| ddia-read-committed | pass | 99 | 1 | 85% | 100% | diagram, 2 timelines, 2 quizzes | 20.0k (17.9k) | 0.0144 | 98 |
+| dbi-btree-lookup | pass* | 94 | 2 | 100% | 100% | 3 diagrams, toggle-compare, 3 quizzes | 17.0k (13.4k) | 0.0131 | 94 |
+| dbi-btree-split | pass* | 95 | 2 | 87% | 75% | 3 diagrams, 2 quizzes | 27.0k (23.9k) | 0.0188 | 150 |
+
+**Total: 5/5 pass, $0.066 for all five** (≈1.3¢ per section, vs ≈$0.2–0.6 per section at Opus prices).
+\* These two failed at run time on a diagram whose YAML had `: ` inside a value; the builder now quotes such
+values itself (`repairYaml` in `tools/format/render.mjs`), and both outputs pass unchanged under it.
+
+What it showed:
+- **The fix node works**: every copy error was rewritten (27 edits proposed, 27 applied, 0 failed); no case ends
+  with a copied run. The copy problem the Opus runs had is solved by the loop, not the prompt.
+- **Thinking is most of the output** (~80% of output tokens are reasoning). A thinking-off writer is an obvious
+  ladder rung to measure.
+- **Toolkit fixes from this run**: YAML values with `: ` are quoted automatically; the diagram renderer routes an
+  edge round the side when a node sits between two nodes in the same column, and nudges edge labels until they
+  clear nodes and other labels (no overlapping text on any eval page now).
+- **Quality still unjudged**: scores are the automatic checks. Reading the pages next to the Opus ones (rubric) is next.
+
+### What's left, in order
+
+The old step numbers below (5–12) still describe each piece in detail; this is the order to do them in.
+
+1. **Judge the outputs and pick goldens** (old 5 + 9): read `opus-2` and `ds-1` side by side with `evals/rubric.md`
+   (you, or an Opus judge), note what the writer prompt or skills should change, and keep the best 2–3 sections
+   as goldens (private when derived from a book).
+2. **Model comparisons on the 5 cases** (old 8 + 10): `deepseek-v4-pro` (`--model deepseek-v4-pro`), flash with
+   thinking off (`--no-thinking`), later Gemini; same cases, same checks, compare cost and quality.
+3. **Finish the harness** (old 6 + 7): digest, plan and chapter-build nodes and their prompts, so a whole chapter
+   runs from the PDF with planner-written briefs instead of the hand-written eval briefs.
+4. **Judge and calibration** (old 9): an LLM judge with the rubric, pairwise against goldens; you score a few to
+   check it agrees.
+5. **Claude baseline + ladder** (old 11): the "N× cheaper at equal quality" numbers (needs Anthropic credits).
+6. **Public demo** (old 12): run on the kubernetes.io Ingress docs (CC BY 4.0), publish with the cost report.
+
+Parallel track, **the app**: done so far is a read-only library. Later: uploads and jobs (queue + worker
+calling the pipeline), auth, and serving chapter pages from their own origin.
+
+Known gaps carried forward: ingestion quirks (OSTEP boxed asides and dropped formula fractions, KiA split
+captions and duplicated continued tables); the two kubectl simulators are not merged; `needs=`/`sets=`
+canned-command flags not implemented; non-PDF input (articles, Markdown, docs pages) needs an ingest adapter.
+
+---
+
 ## 0. The short version
 
 - **About 70% of this project needs no LLM API at all.** Ingestion, chunking, the page engine, the diagram
@@ -267,8 +401,9 @@ an id that differs only in case from a known one. Every error code says whether 
 > - `node tools/eval-score.mjs <case-dir> <output.md>`: must checks (builds, no copy, listings, files) +
 >   a 0–100 should score (coverage, length, visuals, quizzes, terminals, invited widget, warnings).
 >   `evals/rubric.md` is the judge rubric (faithful, clear, visual, interactive, polish).
-> - Next: run a writer (Claude Code subagent given prompt.json's system + user, no tools) on each case, score
->   it, look at the pages, fix skills/format where the output is weak, then keep the best as goldens.
+> - All 5 cases run with Opus writers (results and findings in "Where we are" at the top): 1 pass, 4 fail
+>   only on copying (two 8–12 word runs each), scores 90–96, ~$0.2–0.6 per section at Opus prices.
+> - Next: the writer quality loop (anti-copy prompt line, re-run, judge with the rubric, keep goldens).
 > - Known extraction quirks: OSTEP boxed TIP/ASIDE text and margin notes land mid-paragraph, formula
 >   fractions are dropped; KiA two-line figure captions can split, a table continued across pages appears twice.
 

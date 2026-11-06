@@ -11,7 +11,7 @@ brief: |
   for reads instead of read locks). Keep the book's note about which databases use it as a default and that
   read committed does not prevent the counter race shown in the previous section.
   The book's figures are two-user timelines.
-  Budget: 600-900 words of prose.
+  Length: match the source's prose (85-115% of its words).
 expect:
   coverage: 0.5
   visual_min: 2

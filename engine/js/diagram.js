@@ -101,15 +101,19 @@
     const pairs = new Set(spec.edges.map((e) => `${e.from}>${e.to}`));
     const blocked = (a, b) => a.row === b.row && Math.abs(a.col - b.col) > 1 &&
       nodes.some((n) => n.row === a.row && n.col > Math.min(a.col, b.col) && n.col < Math.max(a.col, b.col));
+    // same column, a node in between: going straight would cross it, so loop round the right-hand side
+    const blockedV = (a, b) => a.col === b.col && Math.abs(a.row - b.row) > 1 &&
+      nodes.some((n) => n.col === a.col && n.row > Math.min(a.row, b.row) && n.row < Math.max(a.row, b.row));
     const geo = spec.edges.map((e) => {
       const a = byId[e.from], b = byId[e.to];
-      let sideA, sideB;
+      let sideA, sideB, loop = false;
       if (blocked(a, b)) { sideA = 'top'; sideB = 'top'; }
+      else if (blockedV(a, b)) { sideA = 'right'; sideB = 'right'; loop = true; }
       else if (b.col > a.col) { sideA = 'right'; sideB = 'left'; }
       else if (b.col < a.col) { sideA = 'left'; sideB = 'right'; }
       else if (b.row > a.row) { sideA = 'bottom'; sideB = 'top'; }
       else { sideA = 'top'; sideB = 'bottom'; }
-      return { e, a, b, sideA, sideB, offA: 0, offB: 0, rev: pairs.has(`${e.to}>${e.from}`) };
+      return { e, a, b, sideA, sideB, loop, offA: 0, offB: 0, rev: pairs.has(`${e.to}>${e.from}`) };
     });
     const bucket = new Map();
     for (const g of geo) {
@@ -136,6 +140,9 @@
       if (g.sideA === 'top' && g.sideB === 'top') {
         const lift = Math.min(p0[1], p3[1]) - 46;
         p1 = [p0[0], lift]; p2 = [p3[0], lift];
+      } else if (g.loop) {
+        const out = Math.max(p0[0], p3[0]) + 64;
+        p1 = [out, p0[1]]; p2 = [out, p3[1]];
       } else if (g.sideA === 'right' || g.sideA === 'left') {
         const dx = Math.max(28, Math.abs(p3[0] - p0[0]) * 0.5) * (g.sideA === 'right' ? 1 : -1);
         p1 = [p0[0] + dx, p0[1]]; p2 = [p3[0] - dx, p3[1]];
@@ -153,6 +160,30 @@
       g.mid = cubicAt(g.pts, 0.5);
     }
 
+    // ---- edge labels: start at the curve's midpoint, then nudge across the edge until the pill clears every
+    // node and every label already placed (two edges between the same pair, a label landing on a box...)
+    const boxes = nodes.map((n) => [n.x - 3, n.y - 3, n.x + n.w + 3, n.y + n.h + 3]);
+    const hits = (b) => boxes.some((o) => b[0] < o[2] && o[0] < b[2] && b[1] < o[3] && o[1] < b[3]);
+    for (const g of geo) {
+      if (!g.e.label) continue;
+      const lw = measure(g.e.label, F.edge) + 12;
+      const across = Math.abs(g.pts[3][0] - g.pts[0][0]) >= Math.abs(g.pts[3][1] - g.pts[0][1]) && !g.loop
+        ? [[0, 1]] : [[1, 0]];                       // mostly horizontal: move up/down; vertical: left/right
+      const [ux, uy] = across[0];
+      const first = g.rev ? (g.e.from < g.e.to ? -1 : 1) : 1;
+      const steps = [0, 14, -14, 28, -28, 42, -42].map((s) => s * first);
+      const sx = ux ? Math.max(lw / 2 + 10, 16) / 14 : 1; // sideways moves need to clear the label's width
+      let best = null;
+      for (const s of steps) {
+        const cx = g.mid[0] + ux * s * sx, cy = g.mid[1] + uy * s;
+        const b = [cx - lw / 2, cy - 10, cx + lw / 2, cy + 9];
+        if (!hits(b)) { best = [cx, cy, b]; break; }
+      }
+      if (!best) best = [g.mid[0], g.mid[1], [g.mid[0] - lw / 2, g.mid[1] - 10, g.mid[0] + lw / 2, g.mid[1] + 9]];
+      g.lbl = { x: best[0], y: best[1], w: lw };
+      boxes.push(best[2]);
+    }
+
     // ---- canvas size (content plus groups, never narrower than minWidth)
     const groups = (spec.groups || []).map((gr) => {
       const ms = gr.nodes.map((id) => byId[id]).filter(Boolean);
@@ -160,8 +191,11 @@
       const x1 = Math.max(...ms.map((n) => n.x + n.w)) + 16, y1 = Math.max(...ms.map((n) => n.y + n.h)) + 14;
       return { ...gr, x0, y0, x1, y1 };
     });
-    const xs = [...nodes.flatMap((n) => [n.x, n.x + n.w]), ...groups.flatMap((g) => [g.x0, g.x1]), ...geo.map((g) => g.mid[0])];
-    const ys = [...nodes.flatMap((n) => [n.y, n.y + n.h]), ...groups.flatMap((g) => [g.y0, g.y1]), ...geo.flatMap((g) => [g.pts[1][1], g.mid[1] - 12])];
+    const lbls = geo.filter((g) => g.lbl).map((g) => g.lbl);
+    const xs = [...nodes.flatMap((n) => [n.x, n.x + n.w]), ...groups.flatMap((g) => [g.x0, g.x1]), ...geo.map((g) => g.mid[0]),
+      ...geo.filter((g) => g.loop).map((g) => g.pts[1][0] - 20), ...lbls.flatMap((l) => [l.x - l.w / 2, l.x + l.w / 2])];
+    const ys = [...nodes.flatMap((n) => [n.y, n.y + n.h]), ...groups.flatMap((g) => [g.y0, g.y1]), ...geo.flatMap((g) => [g.pts[1][1], g.mid[1] - 12]),
+      ...lbls.flatMap((l) => [l.y - 12, l.y + 11])];
     let minX = Math.min(...xs) - 14, maxX = Math.max(...xs) + 14;
     const minY = Math.min(...ys) - 12, maxY = Math.max(...ys) + 12;
     const minW = opts.minWidth ?? 560;
@@ -184,9 +218,8 @@
       const style = g.e.style;
       const gEl = el('g', { class: 'de', 'data-id': g.e.id, 'data-step': firstStep[g.e.id] }, svg);
       el('path', { class: EDGE_CLASS[style], d: g.d, 'marker-end': `url(#${MARKER[style]})` }, gEl);
-      if (g.e.label) {
-        const lw = measure(g.e.label, F.edge) + 12;
-        const [mx, my] = g.mid;
+      if (g.lbl) {
+        const { x: mx, y: my, w: lw } = g.lbl;
         el('rect', { class: 'elbl-bg', x: r1(mx - lw / 2), y: r1(my - 10), width: r1(lw), height: 19, rx: 9.5 }, gEl);
         text(gEl, r1(mx), r1(my + 4), g.e.label, style === 'dim' ? 'elbl t-muted' : 'elbl');
       }

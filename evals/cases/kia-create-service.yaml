@@ -11,7 +11,7 @@ brief: |
   to change a service's selector and ports. Keep the book's notes as callouts and its table of spec fields.
   The shell is the basic one: give the book's command output after each $ command.
   The book's figure shows a Service forwarding to the pods its selector matches.
-  Budget: 600-1000 words of prose.
+  Length: match the source's prose (85-115% of its words).
 expect:
   coverage: 0.6
   visual_min: 1

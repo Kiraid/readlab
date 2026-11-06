@@ -9,7 +9,7 @@ brief: |
   separator to the parent, and how a split can cascade up to the root (which grows the tree by one level).
   Cover both the leaf split and the non-leaf split the book walks through (its example inserts key 11),
   and the difference in what gets promoted in each case.
-  Budget: 450-700 words of prose.
+  Length: match the source's prose (85-115% of its words).
 expect:
   coverage: 0.6
   visual_min: 2

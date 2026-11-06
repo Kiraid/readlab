@@ -8,7 +8,7 @@ use in its brief.
 | File | Pattern | Built from |
 |---|---|---|
 | `FORMAT.md` | the writer contract: blocks, diagram DSL, terminals, YAML traps | — |
-| `faithful-coverage.md` | cover everything in the book's order, in your own words | prose |
+| `faithful-coverage.md` | cover everything in the author's order and depth, nothing added, in your own sentences | prose |
 | `explain-listing.md` | a listing, then what each highlighted line does | `code` + prose |
 | `terminal-walkthrough.md` | commands to try and what to look for in the output | `term` + prose |
 | `clarify-misconception.md` | the one sentence that fixes what people get wrong | prose / `callout` |

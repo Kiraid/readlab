@@ -12,6 +12,7 @@ Rules:
 - Only clarify what the source supports: restate a consequence the book gives or implies, don't invent
   internals.
 - Put it inline in the prose or as a `:::callout tip`; never bury it at the end of a long paragraph.
-- One per section is plenty; three is a lecture.
+- At most one per section, and only where the brief asks for one; otherwise the author's own explanation
+  is the page.
 - Good targets: which component actually does the work, what is *not* in an object, the difference
   between two similar names, the order of steps, defaults that surprise people.

@@ -1,0 +1,24 @@
+id: kia-create-service
+book: kia
+chapter_dir: ch11
+sections: ["11.1.2"]
+title: Creating and updating services
+shell: basic
+clip: { max_tokens: 1700 }
+brief: |
+  Teach how to create a Service from a manifest (walk the listing: name, selector, ports and targetPort),
+  how `kubectl expose` creates one from an existing pod, how to list services and read the output, and how
+  to change a service's selector and ports. Keep the book's notes as callouts and its table of spec fields.
+  The shell is the basic one: give the book's command output after each $ command.
+  The book's figure shows a Service forwarding to the pods its selector matches.
+  Budget: 600-1000 words of prose.
+expect:
+  coverage: 0.6
+  visual_min: 1
+  quiz_min: 1
+  terminal_min: 1
+  widget_any: [request-tracer, rule-tester]
+ideas:
+  - explain-listing with highlighted lines for selector, port and targetPort.
+  - A flow diagram of a client, the Service and the three pods it selects, with a journey to one pod.
+  - "A terminal with the expose, get svc and set selector commands and a 'what to look for' paragraph."

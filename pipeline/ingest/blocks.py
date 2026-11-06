@@ -15,7 +15,11 @@ from dataclasses import dataclass, field
 from .config import BookConfig
 from .pdf_lines import Line, Span
 
-CAPTION_RE = re.compile(r"^(Listing|Figure|Table)\s*(\d+\.\d+)\s*(.*)$")
+CAPTION_RE = re.compile(r"^(Listing|Figure|Table|Example)\s*(\d+[.-]\d+)\s*(.*)$")
+# A caption set in the body font: the number is followed by "." or ":" ("Figure 2-3. Balanced tree",
+# "Figure7.1: FIFO"), which prose that mentions a figure ("Figure 7-4 shows") doesn't have.
+BODY_CAPTION_RE = re.compile(r"^(Listing|Figure|Table|Example)\s*(\d+[.-]\d+)\s*[.:]\s*\S")
+CAPTION_KIND = {"Listing": "listing_caption", "Example": "listing_caption", "Figure": "figure", "Table": "table"}
 FLOATS = {"code", "figure", "table", "callout", "listing_caption"}
 
 
@@ -152,10 +156,14 @@ def classify(ln: Line, cfg: BookConfig, margin: float) -> str:
         return "heading"
     first = ln.spans[0]
     label_re = re.compile(r"^(%s)\b" % "|".join(cfg.callout_labels))
+    if roles <= {"body", "code"} and len(text) < 160:
+        m = BODY_CAPTION_RE.match(text)
+        if m:
+            return CAPTION_KIND[m.group(1)]
     if first.role == "label":
         m = CAPTION_RE.match(text)
         if m:
-            return {"Listing": "listing_caption", "Figure": "figure", "Table": "table"}[m.group(1)]
+            return CAPTION_KIND[m.group(1)]
         if label_re.match(text):
             return "callout"
         if roles <= {"label"}:
@@ -239,8 +247,8 @@ def page_blocks(lines: list[Line], cfg: BookConfig, margin: float) -> tuple[list
                 new("heading", text)
         elif kind in ("listing_caption", "figure", "table"):
             m = CAPTION_RE.match(ln.plain.strip())
-            text = re.sub(r"^(Listing|Figure|Table)\s*\d+\.\d+\s*", "", render_line(ln))
-            new(kind, text, number=m.group(2) if m else "")
+            text = re.sub(r"^\*?(Listing|Figure|Table|Example)\s*\d+[.-]\d+\s*[.:]?\s*", "", render_line(ln)).strip("* ")
+            new(kind, text, number=m.group(2) if m else "", italic=all(s.italic for s in ln.spans if s.text.strip()))
         elif kind == "subheading":
             text = re.sub(r"\s+", " ", ln.plain).strip()
             if cur and cur.kind == "subheading" and gap < size:
@@ -261,9 +269,10 @@ def page_blocks(lines: list[Line], cfg: BookConfig, margin: float) -> tuple[list
                 cur.text = join_text(cur.text, text)
             elif cur and cur.kind == "item" and pitch_ok and abs(ln.x0 - cur.meta["text_x"]) <= 3:
                 cur.text = join_text(cur.text, text)
-            elif cur and cur.kind in ("figure", "table", "listing_caption") and pitch_ok and ln.size < 9.5 \
-                    and "label" in ln.roles:
-                cur.text = join_text(cur.text, text)  # wrapped caption
+            elif cur and cur.kind in ("figure", "table", "listing_caption") and pitch_ok and (
+                    (ln.size < 9.5 and "label" in ln.roles)
+                    or (cur.meta.get("italic") and all(s.italic for s in ln.spans if s.text.strip()))):
+                cur.text = join_text(cur.text, text.strip("*"))  # wrapped caption
             elif cur and cur.kind == "para" and pitch_ok and ln.x0 <= margin + 4:
                 cur.text = join_text(cur.text, text)
             else:

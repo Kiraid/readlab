@@ -256,6 +256,22 @@ an id that differs only in case from a known one. Every error code says whether 
 
 ### Step 5: Golden sections, hand-made (no API; Claude Code subscription)
 
+> **Status 2026-11-06: eval set built; writer runs and goldens not done yet.**
+> - Four books ingested for diversity: KiA (ch11), OSTEP (ch7 scheduling), Database Internals (ch2 B-Trees),
+>   DDIA (ch7 transactions). Ingestion now handles "Chapter N." titles, unnumbered outlines (positional ids,
+>   `--id`), per-book `x_tolerance`, and captions set in body text ("Figure 2-3.", "Figure7.1:").
+> - `evals/cases/*.yaml`: five cases (clipped snippets + brief + loose expectations + ideas).
+>   `python -m evals.prepare` writes `sources/evals/<id>/prompt.json`: the exact system + user messages the
+>   harness will send (`pipeline/prompts/assemble.py`; the ~9k-token system prompt is identical across cases,
+>   so it is the cached prefix).
+> - `node tools/eval-score.mjs <case-dir> <output.md>`: must checks (builds, no copy, listings, files) +
+>   a 0–100 should score (coverage, length, visuals, quizzes, terminals, invited widget, warnings).
+>   `evals/rubric.md` is the judge rubric (faithful, clear, visual, interactive, polish).
+> - Next: run a writer (Claude Code subagent given prompt.json's system + user, no tools) on each case, score
+>   it, look at the pages, fix skills/format where the output is weak, then keep the best as goldens.
+> - Known extraction quirks: OSTEP boxed TIP/ASIDE text and margin notes land mid-paragraph, formula
+>   fractions are dropped; KiA two-line figure captions can split, a table continued across pages appears twice.
+
 Hand-port **2–3 sections of ch12** into the new format with Claude Code in a normal interactive session. Pick sections
 that are different from each other: one diagram-heavy, one shell-heavy, one with a lab widget.
 

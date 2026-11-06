@@ -1,0 +1,16 @@
+# Designing Data-Intensive Applications. Local runs only: the source PDF is not committed.
+id: ddia
+title: Designing Data-Intensive Applications
+source: sources/ddia/ddia.pdf
+out_dir: sources/ddia
+
+fonts:
+  - {match: "MyriadPro", min_size: 11, role: heading}    # chapter, section and subsection headings
+  - {match: "MinionPro", min_size: 9.5, role: body}      # prose, italic captions
+  - {match: "UbuntuMono", min_size: 7.5, role: code}
+  # dropped: footer (Myriad 9), footnotes and reference markers (Minion <= 8)
+
+margins: {top: 0.06, bottom: 0.915}
+
+shell:
+  plugin: basic

@@ -1,0 +1,23 @@
+# The reading library the app serves. Metadata only: chapter pages live on disk (paths are relative to the
+# repo root) and are not committed when they are derived from a copyrighted book.
+#
+# A chapter `path` is either a built chapter (a folder with index.html from tools/build.mjs) or a
+# hand-built site (index.html + css/ + js/ + sections/, like the references).
+books:
+  - id: kia
+    title: Kubernetes in Action
+    edition: 2nd edition
+    authors: [Marko Lukša, Kevin Conner]
+    accent: "#ff9159"
+    blurb: Running containerised applications on Kubernetes, from pods to traffic routing.
+    chapters:
+      - id: "12"
+        title: Using Ingress to route traffic to services
+        path: reference/kia-ch12
+        summary: One entry point for many services. The Ingress object, the controller and proxy behind it, path and host rules, TLS, and controller-specific extras.
+        made: hand-built
+      - id: "13"
+        title: Routing traffic using the Gateway API
+        path: reference/kia-ch13
+        summary: The successor to Ingress. Gateway classes, Gateways and routes, matching and filters, TLS and L4 routes, and sharing across namespaces.
+        made: hand-built

@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { writeFileSync } from 'node:fs';
+import { scoreOutput } from '../eval-score.mjs';
 import { validateChapter } from '../validate.mjs';
 import { autofix } from './autofix.mjs';
 import { copyRuns, strayNumbers, words } from './checks.mjs';
@@ -76,4 +78,22 @@ test('a broken section: without --fix only the parse error shows; with --fix the
   assert.match(w.numbers, /5000/);
   assert.match(w.commands, /kubectl apply -f app\.yaml/);
   assert.match(w.inventory, /table|figure/);
+});
+
+test('eval scorer: must checks pass/fail and the soft score reflects what the section uses', () => {
+  const dir = join(tmpdir(), `itb-evalcase-${process.pid}`);
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(join(dir, 'out'), { recursive: true });
+  cpSync(join(FIX, 'files'), join(dir, 'files'), { recursive: true });
+  cpSync(join(FIX, 'source.json'), join(dir, 'source.json'));
+  writeFileSync(join(dir, 'case.yaml'), 'id: fixture\ntitle: Running the web app\nshell: basic\nbrief: "Teach it. Budget: 60-200 words of prose."\nexpect: { visual_min: 1, quiz_min: 1, widget_any: [timeline] }\n');
+  const good = scoreOutput(dir, join(FIX, 'good', '01-good.md'));
+  assert.equal(good.pass, true);
+  assert.deepEqual(good.must, { builds: true, no_copy: true, listings_shown: true, files_exist: true });
+  assert.equal(good.should.invited_widget, 0);
+  assert.ok(good.score >= 60 && good.score < 100, `score ${good.score}`);
+  const bad = scoreOutput(dir, join(FIX, 'bad', '01-bad.md'));
+  assert.equal(bad.pass, false);
+  assert.equal(bad.must.no_copy, false);
+  assert.equal(bad.must.listings_shown, false);
 });

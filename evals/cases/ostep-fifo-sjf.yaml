@@ -1,0 +1,23 @@
+id: ostep-fifo-sjf
+book: ostep
+chapter_dir: ch07
+sections: ["7.3", "7.4"]
+title: FIFO and Shortest Job First
+shell: basic
+brief: |
+  Teach why FIFO suffers from the convoy effect and how Shortest Job First fixes it when jobs arrive
+  together, then why SJF breaks again when a long job arrives first and short ones arrive later. Keep the
+  book's three-job workloads (equal 10 s jobs; A=100 s with B, C=10 s; then B and C arriving at t=10) and its
+  average-turnaround numbers; show the arithmetic. Turnaround time is defined earlier in the chapter as
+  completion time minus arrival time. The book's figures are Gantt-style charts of each schedule.
+  Include the preemptive vs non-preemptive aside and the "ten items or less" principle in your own words.
+  Budget: 450-750 words of prose.
+expect:
+  coverage: 0.6
+  visual_min: 2
+  quiz_min: 1
+  widget_any: [timeline, compare-scale, toggle-compare]
+ideas:
+  - One timeline per scenario on the same scale, so the convoy is visible as a long A bar with B and C waiting.
+  - A quiz that asks for the average turnaround of a small new workload under FIFO vs SJF.
+  - A one-line clarification that SJF is optimal only when all jobs arrive together.

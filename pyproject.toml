@@ -7,10 +7,12 @@ dependencies = [
     "pdfplumber>=0.11",   # MIT: text spans with font name/size
     "pypdf>=5.0",         # BSD: PDF outline (bookmarks) -> section page ranges
     "pyyaml>=6.0",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
 ]
 
 [dependency-groups]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "httpx>=0.27"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

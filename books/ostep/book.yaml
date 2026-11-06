@@ -1,0 +1,21 @@
+# Operating Systems: Three Easy Pieces. Local runs only: the source PDF is not committed.
+id: ostep
+title: "Operating Systems: Three Easy Pieces"
+source: sources/ostep/ostep.pdf
+out_dir: sources/ostep
+
+# Set tightly: word gaps are often under 1.5pt, so a smaller tolerance keeps words apart.
+x_tolerance: 0.9
+
+fonts:
+  - {match: "NimbusSanL", min_size: 12, role: heading}       # chapter number and title
+  - {match: "URWPalladioL", min_size: 10.5, role: heading}   # "7.1 Workload Assumptions"
+  - {match: "URWPalladioL", min_size: 6.9, role: body}       # prose, small caps, asides
+  - {match: "^CM(R|MI)9", role: body}                        # inline math set in Computer Modern
+  - {match: "NimbusMonL", role: code}
+  # dropped: figure labels (NimbusSanL 7.2), fraction pieces (CM*6)
+
+margins: {top: 0.11, bottom: 0.905}   # running header at the top, page footer at the bottom
+
+shell:
+  plugin: basic

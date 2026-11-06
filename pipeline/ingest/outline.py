@@ -1,4 +1,12 @@
-"""PDF outline (bookmarks) -> chapter and section page ranges."""
+"""PDF outline (bookmarks) -> chapter and section page ranges.
+
+Books number their outlines differently:
+  "12.2.1 Exposing a service"        (Kubernetes in Action)
+  "Chapter 7. Transactions"          (O'Reilly books)
+  "Scheduling: Introduction"         (no numbers at all, e.g. OSTEP)
+A chapter can be picked by number or by a piece of its title. Sections keep their printed number when
+they have one; otherwise they get one from their position ("7.1", "7.1.2"), so ids stay stable per book.
+"""
 from __future__ import annotations
 
 import json
@@ -6,7 +14,7 @@ import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-NUMBERED = re.compile(r"^(\d+(?:\.\d+)*)\s+(.*)$")
+NUMBERED = re.compile(r"^(?:chapter\s+|part\s+)?(\d+(?:\.\d+)*)\.?\s+(.*)$", re.I)
 
 
 @dataclass
@@ -56,25 +64,51 @@ def read_outline(pdf_path: Path, cache_dir: Path | None = None) -> list[Entry]:
 
 
 @dataclass
+class SectionEntry:
+    entry: Entry
+    id: str      # "12.2.1", or positional "7.3" when the outline has no numbers
+    level: int   # 2 = first level below the chapter, 3 = the next ...
+
+    @property
+    def name(self) -> str:
+        return self.entry.name
+
+
+@dataclass
 class ChapterRange:
     chapter: Entry
-    sections: list[Entry]  # numbered entries below the chapter, in order
+    id: str
+    sections: list[SectionEntry]
     first_page: int
     last_page: int
 
 
-def chapter_range(entries: list[Entry], chapter: str, last_pdf_page: int) -> ChapterRange:
+def find_chapter(entries: list[Entry], selector: str) -> int:
+    """Index of the chapter: exact number first, then the first title containing the selector."""
     for i, e in enumerate(entries):
-        if e.number == chapter:
-            break
-    else:
-        raise KeyError(f"chapter {chapter} not found in the PDF outline")
-    sections = []
+        if e.number == selector:
+            return i
+    low = selector.lower()
+    for i, e in enumerate(entries):
+        if low in e.title.lower():
+            return i
+    raise KeyError(f"chapter {selector!r} not found in the PDF outline")
+
+
+def chapter_range(entries: list[Entry], selector: str, last_pdf_page: int, chapter_id: str | None = None) -> ChapterRange:
+    i = find_chapter(entries, selector)
+    e = entries[i]
+    cid = chapter_id or e.number or re.sub(r"[^a-z0-9]+", "-", e.title.lower()).strip("-")
+    sections: list[SectionEntry] = []
+    counters: list[int] = []
     end = last_pdf_page
     for f in entries[i + 1:]:
         if f.level <= e.level:
             end = f.page - 1
             break
-        if f.number and f.number.startswith(chapter + "."):
-            sections.append(f)
-    return ChapterRange(e, sections, e.page, end)
+        depth = f.level - e.level  # 1 = directly below the chapter
+        counters = (counters + [0] * depth)[:depth]
+        counters[-1] += 1
+        sid = f.number if f.number and f.number.startswith(cid + ".") else ".".join([cid] + [str(c) for c in counters])
+        sections.append(SectionEntry(f, sid, depth + 1))
+    return ChapterRange(e, cid, sections, e.page, end)

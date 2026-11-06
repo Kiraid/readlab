@@ -46,6 +46,7 @@ class BookConfig:
     extra_sections: tuple[str, ...] = ("Summary",)
     chunk_min_tokens: int = 250
     chunk_max_tokens: int = 3000
+    x_tolerance: float = 1.5  # max gap (pt) inside a word; tightly set books need less
     raw: dict = field(default_factory=dict)
 
     def role(self, font: str, size: float) -> str:
@@ -77,6 +78,7 @@ def load_book(path: str | Path) -> BookConfig:
         margin_bottom=margins.get("bottom", 0.92),
         chunk_min_tokens=chunk.get("min_tokens", 250),
         chunk_max_tokens=chunk.get("max_tokens", 3000),
+        x_tolerance=float(data.get("x_tolerance", 1.5)),
         raw=data,
     )
     if "callout_labels" in data:

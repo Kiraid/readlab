@@ -36,31 +36,46 @@ class Section:
         return (min(ps), max(ps)) if ps else None
 
 
+LEADING_NUM = re.compile(r"^\s*(?:chapter\s+)?\d+(?:\.\d+)*\.?\s*", re.I)
+
+
 def assign_sections(blocks: list[Block], rng: ChapterRange, cfg: BookConfig) -> tuple[list[Section], list[str]]:
-    """Walk blocks in order; a heading whose number is in the outline opens that section.
+    """Walk blocks in order; a heading that matches an outline section opens it. A heading matches by its
+    printed number when the outline has numbers, otherwise by title (the next unused section with that title).
     Returns sections and a list of warnings (outline entries never found in the text)."""
-    ch = rng.chapter.number
-    known = {e.number: e for e in rng.sections}
+    ch = rng.id
+    by_num = {s.entry.number: s for s in rng.sections if s.entry.number}
     extra = {norm(t): t for t in cfg.extra_sections}
+    chapter_names = {norm(rng.chapter.name), norm(rng.chapter.title)}
     sections = [Section(ch, rng.chapter.name, 1)]
-    found = set()
+    found: set[str] = set()
+
+    def open_section(s) -> None:
+        found.add(s.id)
+        sections.append(Section(s.id, s.name, s.level))
+
     for b in blocks:
         if b.kind == "heading":
             m = HEADING_NUM.match(b.text)
-            if m and m.group(1) in known and m.group(1) not in found:
-                e = known[m.group(1)]
-                found.add(e.number)
-                sections.append(Section(e.number, e.name, e.number.count(".") + 1))
+            if m and m.group(1) in by_num and by_num[m.group(1)].id not in found:
+                open_section(by_num[m.group(1)])
                 continue
-            if norm(b.text) == norm(rng.chapter.name) or norm(b.text) == norm(rng.chapter.title):
-                continue  # the chapter title itself
-            if norm(b.text) in extra:
-                name = extra[norm(b.text)]
-                sections.append(Section(f"{ch}.{norm(name)}", name, 2))
+            title = norm(LEADING_NUM.sub("", b.text))
+            if not title:
+                continue  # a bare chapter number ("7") printed as a heading
+            match = next((s for s in rng.sections if s.id not in found and norm(s.name) == title and title), None)
+            if match:
+                open_section(match)
+                continue
+            if title in chapter_names or norm(b.text) in chapter_names or (title and any(title in c or c in title for c in chapter_names) and len(b.text) < 80):
+                continue  # the chapter title itself (sometimes with "CHAPTER 7" on the same line)
+            if title in extra:
+                name = extra[title]
+                sections.append(Section(f"{ch}.{title}", name, 2))
                 continue
             b.kind = "subheading"
         sections[-1].blocks.append(b)
-    missing = [f"outline section {e.number} not found in text" for e in rng.sections if e.number not in found]
+    missing = [f"outline section {s.id} ({s.name}) not found in text" for s in rng.sections if s.id not in found]
     return sections, missing
 
 

@@ -1,0 +1,16 @@
+# Database Internals. Local runs only: the source PDF is not committed.
+id: dbi
+title: Database Internals
+source: sources/dbi/dbi.pdf
+out_dir: sources/dbi
+
+fonts:
+  - {match: "MyriadPro", min_size: 11, role: heading}    # chapter and section headings
+  - {match: "MinionPro", min_size: 9.5, role: body}      # prose, italic captions
+  - {match: "UbuntuMono", min_size: 7.5, role: code}
+  # dropped: footer (Myriad 9), footnotes and superscripts (Minion <= 8)
+
+margins: {top: 0.06, bottom: 0.915}
+
+shell:
+  plugin: basic

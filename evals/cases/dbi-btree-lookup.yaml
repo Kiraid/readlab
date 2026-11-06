@@ -1,0 +1,22 @@
+id: dbi-btree-lookup
+book: dbi
+chapter_dir: ch02
+sections: ["2.3.1", "2.3.2", "2.3.4"]
+title: B-Tree hierarchy, separator keys and lookup
+shell: basic
+brief: |
+  Teach the shape of a B-Tree (root, internal and leaf nodes; occupancy; why fanout keeps the tree short),
+  how separator keys split the key space into subtrees (and the N+1 pointers for N keys), and the lookup
+  algorithm from root to leaf, including how range scans continue along sibling links. Mention the B+-Tree
+  distinction the book makes (values only in leaves) and its note about which databases use it.
+  The book's figures show a node hierarchy and how separator keys bound each subtree.
+  Budget: 500-800 words of prose.
+expect:
+  coverage: 0.6
+  visual_min: 2
+  quiz_min: 1
+  widget_any: [rule-tester, state-machine]
+ideas:
+  - A flow diagram of a small three-level tree with steps that walk one lookup, comparing against separators at each node.
+  - A diagram of one internal node with keys K1..K3 and the four key ranges its pointers cover.
+  - A quiz on which child pointer to follow for a given key.

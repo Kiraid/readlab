@@ -18,7 +18,20 @@ OUTLINE = [Entry(0, "Part 3", 300), Entry(1, "12 Using Ingress", 421), Entry(2, 
 def test_chapter_range_stops_at_the_next_chapter():
     rng = chapter_range(OUTLINE, "12", 690)
     assert (rng.first_page, rng.last_page) == (421, 449)
-    assert [e.number for e in rng.sections] == ["12.1", "12.1.1", "12.2"]
+    assert [s.id for s in rng.sections] == ["12.1", "12.1.1", "12.2"]
+
+
+def test_chapter_by_title_and_positional_ids_for_unnumbered_outlines():
+    outline = [Entry(0, "Part II. Distributed Data", 160), Entry(1, "Chapter 7. Transactions", 242),
+               Entry(2, "Weak Isolation Levels", 254), Entry(3, "Read Committed", 255), Entry(3, "Snapshot Isolation", 258),
+               Entry(2, "Serializability", 272), Entry(1, "Chapter 8. Trouble", 294),
+               Entry(1, "Scheduling: Introduction", 94), Entry(2, "Workload Assumptions", 94), Entry(2, "Round Robin", 100)]
+    rng = chapter_range(outline, "7", 613)
+    assert rng.id == "7" and rng.chapter.name == "Transactions" and rng.last_page == 293
+    assert [(s.id, s.name, s.level) for s in rng.sections] == [
+        ("7.1", "Weak Isolation Levels", 2), ("7.1.1", "Read Committed", 3), ("7.1.2", "Snapshot Isolation", 3), ("7.2", "Serializability", 2)]
+    rng = chapter_range(outline, "Scheduling", 613, chapter_id="7")
+    assert [s.id for s in rng.sections] == ["7.1", "7.2"]
 
 
 def test_headings_open_outline_sections_and_unknown_headings_become_subheadings():

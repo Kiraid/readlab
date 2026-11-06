@@ -137,7 +137,7 @@ def extract_lines(pdf_path: Path, pages: range, cfg: BookConfig) -> tuple[dict[i
         for i in pages:
             page = pdf.pages[i]
             h = page.height
-            words = page.extract_words(x_tolerance=1.5, y_tolerance=2, extra_attrs=["fontname", "size"])
+            words = page.extract_words(x_tolerance=cfg.x_tolerance, y_tolerance=2, extra_attrs=["fontname", "size"])
             kept = []
             for w in words:
                 if w["top"] < cfg.margin_top * h or w["top"] > cfg.margin_bottom * h:

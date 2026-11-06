@@ -1,0 +1,21 @@
+id: dbi-btree-split
+book: dbi
+chapter_dir: ch02
+sections: ["2.3.6"]
+title: B-Tree node splits
+shell: basic
+brief: |
+  Teach when a node overflows and how it splits: allocate a sibling, move half the entries, promote the
+  separator to the parent, and how a split can cascade up to the root (which grows the tree by one level).
+  Cover both the leaf split and the non-leaf split the book walks through (its example inserts key 11),
+  and the difference in what gets promoted in each case.
+  Budget: 450-700 words of prose.
+expect:
+  coverage: 0.6
+  visual_min: 2
+  quiz_min: 1
+  widget_any: [state-machine, toggle-compare, timeline]
+ideas:
+  - A process-stepper: full leaf, insert 11, split, promote, parent update, as separate highlighted steps.
+  - toggle-compare between "leaf split" and "non-leaf split" with the same node positions.
+  - A quiz on what happens when the parent is also full.

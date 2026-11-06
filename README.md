@@ -49,6 +49,19 @@ paragraphs interrupted by figures, and pin listing annotations to their code lin
 token budget, and each one carries deterministic features: key terms, introduced terms, commands with
 output sizes, listings with their YAML kinds, hosts/IPs/ports and a difficulty tier for model routing.
 
+## The app (library + reader)
+
+FastAPI serves the library API, the chapter pages and the built frontend (React + Vite + TypeScript).
+No database yet: books and chapters are listed in `app/library.yaml`, each chapter pointing at a folder on disk.
+
+```bash
+cd app/frontend && npm install && npm run build      # Windows: builds app/frontend/dist
+./run.sh uvicorn app.backend.main:app --host 0.0.0.0 --port 8000    # WSL: then open http://127.0.0.1:8000
+```
+
+Use `127.0.0.1`, not `localhost`, from Windows: `localhost` tries IPv6 first and WSL only forwards IPv4, which
+costs ~200 ms per request. For frontend work, `npm run dev` (port 5173) proxies `/api` and `/read` to the backend.
+
 ## Build a chapter
 
 ```bash

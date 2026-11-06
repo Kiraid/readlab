@@ -1,0 +1,23 @@
+id: ddia-read-committed
+book: ddia
+chapter_dir: ch07
+sections: ["7.2.1"]
+title: Read committed
+shell: basic
+brief: |
+  Teach the two guarantees of read committed (no dirty reads, no dirty writes), why each matters, with the
+  book's examples (a user seeing a value before the writer commits; two buyers updating a car listing and
+  its invoice), and how databases implement it (row locks for writes; remembering the old committed value
+  for reads instead of read locks). Keep the book's note about which databases use it as a default and that
+  read committed does not prevent the counter race shown in the previous section.
+  The book's figures are two-user timelines.
+  Budget: 600-900 words of prose.
+expect:
+  coverage: 0.5
+  visual_min: 2
+  quiz_min: 1
+  widget_any: [timeline, matrix-explorer, condition-checker]
+ideas:
+  - One timeline per anomaly with a lane per transaction and the harmful step in the error role.
+  - A sequence diagram of user 1, the database and user 2 for the dirty read case.
+  - A quiz contrasting what read committed prevents and what it doesn't.

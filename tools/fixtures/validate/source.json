@@ -1,0 +1,27 @@
+{
+  "book": "fixture",
+  "chapter": "1",
+  "title": "Validator fixture",
+  "sections": [
+    {
+      "id": "1.1",
+      "title": "Running the web app",
+      "features": {
+        "key_terms": ["Deployment", "replicas", "readiness probe", "rolling update", "web"],
+        "introduced_terms": ["readiness probe"],
+        "commands": [{ "cmd": "kubectl apply -f app.yaml", "output_lines": 1 }, { "cmd": "kubectl get pods", "output_lines": 4 }],
+        "listings": [{ "listing": "1.1", "file": "app.yaml" }]
+      },
+      "blocks": [
+        { "kind": "para", "text": "A Deployment keeps a fixed number of identical pods running and replaces any pod that disappears without being asked to.", "meta": {} },
+        { "kind": "para", "text": "The manifest below asks for three replicas of the web container and adds a readiness probe on port 8080.", "meta": {} },
+        { "kind": "code", "text": "apiVersion: apps/v1\nkind: Deployment", "meta": { "listing": "1.1", "file": "app.yaml", "saved_as": "app.yaml" } },
+        { "kind": "code", "text": "$ kubectl apply -f app.yaml\ndeployment.apps/web created\n$ kubectl get pods", "meta": {} },
+        { "kind": "para", "text": "Until the readiness probe succeeds, the pod receives no traffic, which protects users from a half-started process.", "meta": {} },
+        { "kind": "callout", "text": "A rolling update replaces pods a few at a time, so the app stays available.", "meta": { "label": "NOTE" } },
+        { "kind": "table", "text": "Probe types", "meta": { "number": "1.1", "header": ["probe", "effect"], "rows": [["readiness", "traffic"], ["liveness", "restart"]] } },
+        { "kind": "figure", "text": "A Deployment and its pods", "meta": { "number": "1.1" } }
+      ]
+    }
+  ]
+}

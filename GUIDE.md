@@ -228,6 +228,20 @@ self-contained HTML file), **3b** diagram DSL renderers, **3c** engine port from
 
 ### Step 4: Validator, autofix, copy and coverage checks (no API)
 
+> **Status 2026-11-06: done.** `node tools/validate.mjs <chapter-dir> --source <extract.json> [--fix] [--json r.json]`.
+> Each written section is matched to its source section by `id` (ingestion now stores features per section in
+> `extract.json`). Errors (fail the build/fix loop): format (all builder checks), `copy` (8+ word run shared
+> with the source prose; the report quotes at most six words), `listing` (a source listing not shown as
+> `:::code`), `files` (a command names a file that isn't in `files/`). Warnings: `coverage` (< 60% of the
+> source's key and introduced terms), `commands` (source commands in no terminal), `inventory` (fewer tables,
+> figures or callouts than the source), `numbers` (numbers in the prose found nowhere in the source or files:
+> the cheap check for invented facts), `budget` (prose length vs the source, or front matter `words: [min, max]`).
+> Autofix (`tools/format/autofix.mjs`): line endings, tabs, unquoted ids, `##` headings, quiz notations
+> (`Q:`, `[x]`), terminal prompts (`❯`, `%`, `>`), `code src` case/path, unclosed directives. The JSON report is
+> what the pipeline's fix node will read. Tests: fixtures in `tools/fixtures/validate/` (one good, one broken
+> section against a synthetic source). Not done: label-length and SVG class checks beyond what the builder
+> does already; consistency of names inside diagrams vs files (left to the judge).
+
 Validator checks (from `HANDOFF.md` §7) plus:
 - **coverage:** at least N% of the section's extracted key terms appear in the generated text
 - **consistency:** every name used in a `term` block or diagram exists in the chapter fixtures or files

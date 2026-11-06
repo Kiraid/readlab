@@ -54,7 +54,8 @@ output sizes, listings with their YAML kinds, hosts/IPs/ports and a difficulty t
 ```bash
 node tools/build.mjs tools/fixtures/demo --out runs/demo-build   # one self-contained index.html
 node tools/catalog.mjs                                           # every widget + diagram -> runs/catalog
-npm test                                                         # format, diagrams, schemas, every example
+node tools/validate.mjs <chapter-dir> --source sources/<book>/ch<NN>/extract.json [--fix]   # check against the source
+npm test                                                         # format, diagrams, schemas, validator, every example
 ```
 
 A chapter folder holds `chapter.yaml` (page chrome, `shell: { plugin, user, dir, run_file }`, role

@@ -1,0 +1,4 @@
+id: validate-fixture
+title: Validator fixture
+source: source.json
+shell: { plugin: basic }

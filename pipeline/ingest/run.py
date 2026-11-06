@@ -53,13 +53,15 @@ def ingest_chapter(cfg: BookConfig, chapter: str) -> dict:
                            "parts": [{"section": p.section.id, "part": p.part, "blocks": len(p.blocks)} for p in c.parts],
                            "est_tokens": c.tokens, "features": chunk_features(c.blocks, df, len(chunks))})
     difficulty(chunk_rows)
+    # per-section features too: the validator checks each written section against its own source
+    section_features = {s.id: chunk_features(s.blocks, df, len(chunks)) for s in sections}
 
     out = cfg.out_dir / f"ch{int(chapter):02d}"
-    write_outputs(out, cfg, rng, sections, chunks, chunk_rows, stats, warnings)
+    write_outputs(out, cfg, rng, sections, chunks, chunk_rows, stats, warnings, section_features)
     return {"out": out, "sections": sections, "chunks": chunk_rows, "stats": stats, "warnings": warnings, "range": rng}
 
 
-def write_outputs(out: Path, cfg, rng, sections, chunks, chunk_rows, stats, warnings) -> None:
+def write_outputs(out: Path, cfg, rng, sections, chunks, chunk_rows, stats, warnings, section_features=None) -> None:
     for sub in ("sections", "chunks", "files"):
         d = out / sub
         d.mkdir(parents=True, exist_ok=True)
@@ -93,6 +95,7 @@ def write_outputs(out: Path, cfg, rng, sections, chunks, chunk_rows, stats, warn
         "book": cfg.id, "chapter": rng.chapter.number, "title": rng.chapter.name,
         "pdf_pages": [rng.first_page, rng.last_page],
         "sections": [{"id": s.id, "slug": s.slug, "title": s.title, "level": s.level, "pages": s.pages,
+                      "features": (section_features or {}).get(s.id, {}),
                       "blocks": [asdict(b) for b in s.blocks]} for s in sections],
         "chunks": chunk_rows,
         "stats": dict(stats),

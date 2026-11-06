@@ -1,0 +1,24 @@
+title: Which backend serves this API call?
+diagram:
+  nodes:
+    client: client@0,1 "client"
+    gw: gateway@1,1 "API gateway"
+    users: service@2,0 "users"
+    orders: service@2,1 "orders"
+    notfound: error@2,2 "404 page"
+  edges:
+    - client > gw
+    - gw > users
+    - gw > orders
+    - gw > notfound
+fields:
+  - { name: method, options: [GET, POST, DELETE], default: GET }
+  - { name: path, default: /users/42 }
+routes:
+  - { when: { path: "path-prefix:/users" }, via: client > gw > users, result: users service, why: "`/users` is a path prefix of the request." }
+  - { when: { method: POST, path: "path-prefix:/orders" }, via: client > gw > orders, result: orders service, why: Only POST is routed to orders. }
+fallback: { via: client > gw > notfound, result: 404 Not Found, error: true, why: "No route matched, so the gateway answers itself." }
+presets:
+  - { label: GET /users/42, values: { method: GET, path: /users/42 } }
+  - { label: POST /orders, values: { method: POST, path: /orders } }
+  - { label: GET /orders, values: { method: GET, path: /orders } }

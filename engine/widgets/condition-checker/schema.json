@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["inputs", "checks"],
+  "properties": {
+    "title": { "type": "string", "maxLength": 80 },
+    "intro": { "type": "string", "maxLength": 240 },
+    "inputs": { "type": "array", "minItems": 1, "maxItems": 5, "items": {
+      "type": "object", "additionalProperties": false, "required": ["id", "options"],
+      "properties": {
+        "id": { "type": "string", "maxLength": 24 },
+        "label": { "type": "string", "maxLength": 40 },
+        "options": { "type": "array", "minItems": 2, "maxItems": 5, "items": { "type": "string", "maxLength": 28 } },
+        "default": { "type": "string" } } } },
+    "checks": { "type": "array", "minItems": 1, "maxItems": 8, "items": {
+      "type": "object", "additionalProperties": false, "required": ["label", "pass_if"],
+      "properties": {
+        "label": { "type": "string", "maxLength": 60 },
+        "pass_if": { "type": "object", "description": "input id -> allowed value or list of values; all must hold" },
+        "pass": { "type": "string", "maxLength": 200 },
+        "fail": { "type": "string", "maxLength": 200 } } } },
+    "verdict": { "type": "object", "additionalProperties": false,
+      "properties": { "pass": { "type": "string", "maxLength": 200 }, "fail": { "type": "string", "maxLength": 200 } } }
+  }
+}

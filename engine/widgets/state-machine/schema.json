@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["diagram"],
+  "properties": {
+    "title": { "type": "string", "maxLength": 80 },
+    "intro": { "type": "string", "maxLength": 240 },
+    "diagram": { "type": "object", "description": "flow diagram: nodes are states, edges are transitions (label = the event)" },
+    "start": { "type": "string", "maxLength": 24 },
+    "notes": { "type": "object", "additionalProperties": { "type": "string", "maxLength": 240 },
+      "description": "state id or edge id (a>b) -> explanation shown when the reader gets there" }
+  }
+}

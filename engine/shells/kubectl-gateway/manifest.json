@@ -1,0 +1,4 @@
+{
+  "scripts": ["sim.js", "../kubectl-common/complete.js", "hud.js"],
+  "handles": ["kubectl", "k", "curl", "cat", "ls", "help", "clear", "history", "reset", "catchup", "echo", "export", "for", "istioctl", "nc", "grpcurl", "gcloud", "getent", "rm", "kind"]
+}

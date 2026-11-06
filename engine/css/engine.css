@@ -1,0 +1,81 @@
+/* Generic role palette, DSL diagrams and catalog widgets. Loaded after style.css. */
+:root { --store: #7fd1c7; --queue: #f4b860; --cache: #c6e86b; --process: #6ee7a8; --ext: #a7b1c4; }
+
+/* ---------- role palette (node boxes r-*, text rt-*) ---------- */
+[class^="r-"], [class*=" r-"] { stroke-width: 1.5; }
+.r-actor { fill: color-mix(in oklab, var(--dns) 10%, var(--panel)); stroke: var(--dns); }
+.r-client { fill: color-mix(in oklab, var(--client) 13%, var(--panel)); stroke: var(--client); }
+.r-gateway { fill: color-mix(in oklab, var(--proxy) 18%, var(--panel)); stroke: var(--proxy); stroke-width: 2; }
+.r-service { fill: color-mix(in oklab, var(--svc) 11%, var(--panel)); stroke: var(--svc); }
+.r-worker, .r-process { fill: color-mix(in oklab, var(--pod) 16%, var(--panel)); stroke: var(--pod); }
+.r-datastore { fill: color-mix(in oklab, var(--store) 13%, var(--panel)); stroke: var(--store); stroke-width: 1.8; }
+.r-queue, .r-resource { fill: color-mix(in oklab, var(--queue) 13%, var(--panel)); stroke: var(--queue); }
+.r-cache { fill: color-mix(in oklab, var(--cache) 12%, var(--panel)); stroke: var(--cache); }
+.r-controller { fill: color-mix(in oklab, var(--ctrl) 15%, var(--panel)); stroke: var(--ctrl); }
+.r-object { fill: color-mix(in oklab, var(--api) 12%, var(--panel)); stroke: var(--api); }
+.r-secret { fill: color-mix(in oklab, var(--secret) 14%, var(--panel)); stroke: var(--secret); }
+.r-external { fill: color-mix(in oklab, var(--ext) 6%, var(--panel)); stroke: var(--ext); stroke-dasharray: 5 4; }
+.r-error { fill: color-mix(in oklab, var(--default) 12%, var(--panel)); stroke: var(--default); }
+.r-note { fill: color-mix(in oklab, var(--line2) 40%, var(--panel)); stroke: var(--line2); stroke-width: 1; }
+.rt-actor, .rt-external { fill: var(--dns); } .rt-client { fill: var(--client); } .rt-gateway { fill: var(--proxy); }
+.rt-service { fill: var(--svc); } .rt-worker, .rt-process { fill: var(--pod); } .rt-datastore { fill: var(--store); }
+.rt-queue, .rt-resource { fill: var(--queue); } .rt-cache { fill: var(--cache); } .rt-controller { fill: var(--ctrl); }
+.rt-object { fill: var(--api); } .rt-secret { fill: var(--secret); } .rt-error { fill: var(--default); } .rt-note { fill: var(--text); }
+
+/* ---------- DSL diagrams ---------- */
+figure.diagram > svg.dsl-svg { margin: 0 auto; }
+.dlbl { font: 600 13.5px var(--sans); }
+.dsub { font: 500 11.5px var(--mono); fill: #c9d3e4; text-anchor: middle; }
+.elbl { font: 500 11.5px var(--sans); fill: var(--text); }
+.elbl-bg { fill: var(--bg2); stroke: var(--line); stroke-width: 1; }
+.edge.reply { stroke-dasharray: 5 4; }
+.lifeline { stroke: var(--line2); stroke-width: 1.2; stroke-dasharray: 3 5; }
+.mk-ok { fill: var(--ok); }
+
+/* ---------- shared widget pieces ---------- */
+.w-svg { width: 100%; height: auto; display: block; overflow: visible; margin: 6px 0; }
+.w-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+@media (max-width: 640px) { .w-two { grid-template-columns: minmax(0, 1fr); } }
+.w-panel { border: 1px solid var(--line); border-radius: 12px; background: var(--bg2); padding: 10px 12px; min-width: 0; }
+.w-panel h5 { margin: 0 0 6px; font: 600 13px var(--head); color: var(--text); }
+.w-total { font: 600 13px var(--mono); color: var(--muted); margin-top: 4px; }
+.w-total b { color: var(--accent); }
+.w-total.good b { color: var(--ok); }
+.w-out { margin-top: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg2); padding: 10px 12px; font-size: 14px; }
+.w-out .ok { color: var(--ok); } .w-out .bad { color: var(--bad); }
+.w-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.w-table th, .w-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.w-table th { font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.w-table tr.win td { background: color-mix(in oklab, var(--ok) 10%, transparent); }
+.w-table td.v-ok { color: var(--ok); font-weight: 600; } .w-table td.v-no { color: var(--faint); }
+.w-seg { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.w-seg button { font: 12.5px var(--mono); color: #cfd8e6; background: var(--bg2); border: 1px solid var(--line2); border-radius: 7px; padding: 4px 10px; cursor: pointer; }
+.w-seg button.active { border-color: var(--accent); color: #fff; background: color-mix(in oklab, var(--accent) 18%, var(--bg2)); }
+.w-checks { list-style: none; margin: 0; padding: 0; }
+.w-checks li { display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.w-checks li:last-child { border-bottom: 0; }
+.w-checks .mark { font: 700 13px var(--mono); flex: none; width: 20px; }
+.w-checks .pass .mark { color: var(--ok); } .w-checks .fail .mark { color: var(--bad); }
+.w-checks small { display: block; color: var(--muted); font-size: 12.5px; }
+.w-verdict { margin-top: 10px; font-weight: 600; }
+.w-verdict.pass { color: var(--ok); } .w-verdict.fail { color: var(--bad); }
+.w-grid-m { display: grid; gap: 6px; }
+.w-grid-m .hd { font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); align-self: end; }
+.w-grid-m .cell { border: 1px solid var(--line); border-radius: 10px; background: var(--bg2); padding: 6px; min-height: 44px; display: flex; flex-wrap: wrap; gap: 4px; align-content: flex-start; }
+.w-grid-m .cell.sel { border-color: var(--accent); }
+.w-chip { font: 12px var(--mono); color: #cfd8e6; background: var(--panel2); border: 1px solid var(--line2); border-radius: 6px; padding: 2px 7px; cursor: pointer; }
+.w-chip.active { border-color: var(--accent); color: #fff; }
+.w-detail { margin-top: 10px; }
+.w-log { font: 12.5px var(--mono); color: var(--muted); margin-top: 8px; overflow-wrap: anywhere; }
+.w-log b { color: var(--text); }
+.dn.now rect { filter: drop-shadow(0 0 9px rgba(255,145,89,.55)); stroke-width: 2.6; }
+.dn.dimmed { opacity: .35; } .de.dimmed { opacity: .25; }
+.de.lit path { stroke-width: 2.6; }
+.tl-bar { rx: 6; }
+.tl-bar.future { opacity: .18; } .tl-bar.active { filter: drop-shadow(0 0 7px rgba(255,145,89,.5)); }
+.tl-axis { stroke: var(--line2); stroke-width: 1; }
+.tl-tick { fill: var(--faint); font: 10.5px var(--mono); text-anchor: middle; }
+.tl-lane { fill: var(--muted); font: 600 12px var(--sans); text-anchor: end; }
+.tl-head { stroke: var(--accent); stroke-width: 2; }
+.tl-mark { stroke: var(--secret); stroke-width: 1.4; stroke-dasharray: 3 3; }
+.cs-unit-on { opacity: 1; } .cs-more { fill: var(--faint); font: 11px var(--mono); }

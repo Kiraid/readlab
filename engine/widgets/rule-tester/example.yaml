@@ -1,0 +1,10 @@
+title: Which firewall rule lets the packet in?
+input_label: source IP
+pick: first
+rules:
+  - { kind: cidr, pattern: 10.0.0.0/8, label: internal network, target: allow }
+  - { kind: cidr, pattern: 192.168.1.0/24, label: office VPN, target: allow }
+  - { kind: any, pattern: "*", label: everything else, target: deny }
+presets: [10.4.2.7, 192.168.1.40, 192.168.2.40, 8.8.8.8]
+notes:
+  any: The catch-all only applies because no earlier rule matched.

@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["options"],
+  "properties": {
+    "title": { "type": "string", "maxLength": 80 },
+    "intro": { "type": "string", "maxLength": 240 },
+    "options": { "type": "array", "minItems": 2, "maxItems": 4, "items": {
+      "type": "object", "additionalProperties": false, "required": ["label"],
+      "properties": {
+        "label": { "type": "string", "maxLength": 28 },
+        "diagram": { "type": "object", "description": "a flow diagram; keep node positions the same across options" },
+        "summary": { "type": "string", "maxLength": 200 },
+        "points": { "type": "array", "maxItems": 6, "items": { "type": "string", "maxLength": 160 } } } } }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["diagram", "fields", "routes"],
+  "properties": {
+    "title": { "type": "string", "maxLength": 80 },
+    "intro": { "type": "string", "maxLength": 240 },
+    "diagram": { "type": "object", "description": "a flow diagram (nodes, edges, groups) the request travels" },
+    "fields": { "type": "array", "minItems": 1, "maxItems": 4, "items": {
+      "type": "object", "additionalProperties": false, "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "maxLength": 20 },
+        "label": { "type": "string", "maxLength": 30 },
+        "options": { "type": "array", "items": { "type": "string", "maxLength": 60 } },
+        "default": { "type": "string", "maxLength": 60 } } } },
+    "routes": { "type": "array", "minItems": 1, "maxItems": 12, "items": {
+      "type": "object", "additionalProperties": false, "required": ["via"],
+      "properties": {
+        "when": { "type": "object", "additionalProperties": { "type": "string", "maxLength": 80 },
+          "description": "field -> 'exact:x' | 'prefix:/a' | 'path-prefix:/a' | 'regex:^a' | 'host:*.x.com' | 'cidr:10.0.0.0/8' | 'any:' | plain value (exact)" },
+        "via": { "type": "string", "maxLength": 120, "description": "node chain: client > proxy > quote" },
+        "result": { "type": "string", "maxLength": 80 },
+        "why": { "type": "string", "maxLength": 240 },
+        "error": { "type": "boolean" } } } },
+    "fallback": { "type": "object", "additionalProperties": false, "required": ["via"],
+      "properties": { "via": { "type": "string" }, "result": { "type": "string" }, "why": { "type": "string" }, "error": { "type": "boolean" } } },
+    "presets": { "type": "array", "maxItems": 8, "items": { "type": "object", "additionalProperties": false,
+      "properties": { "label": { "type": "string", "maxLength": 40 }, "values": { "type": "object" } } } }
+  }
+}

@@ -1,0 +1,21 @@
+title: The life of a process
+diagram:
+  nodes:
+    new: process@0,1 "new"
+    ready: process@1,1 "ready"
+    running: gateway@2,1 "running"
+    waiting: queue@2,0 "waiting"
+    done: object@3,1 "terminated"
+  edges:
+    - new > ready edge "admitted"
+    - ready > running flow "scheduled"
+    - running > ready edge "preempted"
+    - running > waiting edge "waits for I/O"
+    - waiting > ready edge "I/O done"
+    - running > done edge "exit()"
+start: new
+notes:
+  ready: Runnable, but another process has the CPU.
+  waiting: Not runnable at all until the event it waits for happens.
+  running>ready: The timer interrupt fired and the scheduler picked someone else.
+  waiting>ready: "It goes back to *ready*, not straight to *running*: it still has to be scheduled."

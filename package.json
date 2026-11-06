@@ -1,0 +1,14 @@
+{
+  "name": "readlab",
+  "private": true,
+  "type": "module",
+  "description": "Turn technical text (book chapters, articles, docs) into interactive study pages with a cost-measured agent pipeline.",
+  "scripts": {
+    "test": "node --test \"tools/**/*.test.mjs\"",
+    "build": "node tools/build.mjs"
+  },
+  "dependencies": {
+    "marked": "^15.0.0",
+    "yaml": "^2.6.0"
+  }
+}

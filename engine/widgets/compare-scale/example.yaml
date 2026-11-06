@@ -1,0 +1,8 @@
+title: One database connection per request, or a pool?
+item: request
+unit: connection
+shared: connection pool
+right_title: One shared pool
+n: { default: 6, max: 40, label: concurrent requests }
+cost: { default: 2.5, label: setup ms per connection, prefix: "", suffix: " ms" }
+note: The pool pays the setup cost once and hands the same connections out again.

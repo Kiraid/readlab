@@ -1,0 +1,30 @@
+# Source books and anything extracted from them. Never committed.
+sources/
+
+# Run outputs: raw model responses stay local; reports may be committed later.
+runs/*/raw/
+.cache/
+
+# The reference sections are original wording but derived from a copyrighted book.
+reference/*/sections/
+
+# Secrets
+.env
+.env.*
+
+# Python / Node
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+node_modules/
+
+# Build output
+dist/
+runs/demo-build/
+
+# Book-derived manifests in the hand-built references (they mirror the book's listings)
+reference/*/js/files.js
+
+# Generated catalog page (node tools/catalog.mjs)
+runs/catalog/

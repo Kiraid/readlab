@@ -1,0 +1,25 @@
+# Kubernetes in Action, 2nd ed. Local study runs only: the source PDF is not committed.
+id: kia
+title: Kubernetes in Action, 2nd ed.
+source: sources/kia/kia-2e.pdf     # relative to the project root
+out_dir: sources/kia               # extraction output (gitignored)
+
+# One-time per-book calibration: font name (subset prefix removed, regex search) -> role.
+# First match wins; unmatched fonts are dropped. Run `ingest fonts` to see the histogram.
+# Roles: body, code, heading, label, annotation, bullet, drop.
+fonts:
+  - {match: "NewBaskerville", min_size: 20, role: heading}   # chapter title
+  - {match: "NewBaskerville", role: body}                    # prose, callout text
+  - {match: "JetBrainsMono", role: code}                     # listings, commands, inline code
+  - {match: "FranklinGothic-DemiItal", role: heading}        # numbered headings, "This chapter covers"
+  - {match: "FranklinGothic-Demi$", role: label}             # Listing/Figure captions, NOTE labels, run-in heads
+  - {match: "FranklinGothic-Book", role: body}               # chapter-opener list
+  - {match: "HumanistMann521-BoldCondensed$", role: annotation}  # notes beside listing lines
+  - {match: "Wingdings", role: bullet}
+  # everything else (figure text in Arial, the per-copy licence watermark) is dropped
+
+margins: {top: 0.06, bottom: 0.92}   # fractions of page height; running header and watermark live outside
+
+shell:
+  prompt: "$"
+  flavour: kubectl

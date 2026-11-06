@@ -1,0 +1,14 @@
+title: Which anomalies can each isolation level show?
+rows:
+  - { id: rc, label: Read Committed }
+  - { id: rr, label: Repeatable Read }
+  - { id: ser, label: Serializable }
+cols:
+  - { id: possible, label: can happen }
+  - { id: prevented, label: prevented }
+items:
+  - { label: dirty read, row: rc, col: prevented, text: Read Committed never shows uncommitted rows. }
+  - { label: non-repeatable read, row: rc, col: possible, text: Reading the same row twice can return different values if another transaction commits in between. }
+  - { label: non-repeatable read, row: rr, col: prevented, text: The transaction keeps reading the snapshot it started with. }
+  - { label: write skew, row: rr, col: possible, text: "Two transactions each read, decide, and write different rows; together they break a rule neither broke alone." }
+  - { label: write skew, row: ser, col: prevented, text: Serializable aborts one of the two transactions. }

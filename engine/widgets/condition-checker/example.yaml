@@ -1,0 +1,21 @@
+title: Can the planner use the index on (last_name, first_name)?
+inputs:
+  - { id: col, label: WHERE filters on, options: [last_name, first_name, both] }
+  - { id: wrap, label: column wrapped in a function, options: ["no", "yes: LOWER(last_name)"] }
+  - { id: op, label: comparison, options: ["=", "LIKE 'Sm%'", "LIKE '%th'"] }
+checks:
+  - label: The filter uses the index's leading column
+    pass_if: { col: [last_name, both] }
+    pass: last_name comes first in the index, so the tree can be entered.
+    fail: first_name alone is the second column; the tree is sorted by last_name first.
+  - label: The column is compared as stored
+    pass_if: { wrap: ["no"] }
+    pass: The raw column value can be looked up in the index.
+    fail: The index stores last_name, not LOWER(last_name); an expression index would be needed.
+  - label: The comparison has a fixed prefix
+    pass_if: { op: ["=", "LIKE 'Sm%'"] }
+    pass: Equality or a fixed prefix maps to a range of the sorted index.
+    fail: A leading wildcard can match anywhere, so there is no range to scan.
+verdict:
+  pass: An index scan is possible.
+  fail: The planner falls back to a sequential scan.

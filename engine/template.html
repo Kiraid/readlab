@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{title}}</title>
+  <meta name="description" content="{{description}}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  {{styles}}
+</head>
+<body>
+  <div id="progress"></div>
+
+  <!-- shared arrowheads for every diagram -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk" d="M0 0 L10 5 L0 10 z"/></marker>
+      <marker id="arrow-tls" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-tls" d="M0 0 L10 5 L0 10 z"/></marker>
+      <marker id="arrow-bad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-bad" d="M0 0 L10 5 L0 10 z"/></marker>
+      <marker id="arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-accent" d="M0 0 L10 5 L0 10 z"/></marker>
+      <radialGradient id="glow" cx="50%" cy="50%" r="50%"><stop offset="0%" class="glow-in"/><stop offset="100%" class="glow-out"/></radialGradient>
+    </defs>
+  </svg>
+
+  <div class="layout">
+    <aside id="side">
+      <div class="brand"><span class="brand-mark">{{brand_mark}}</span><div><b>{{title}}</b><small>{{brand_sub}}</small></div></div>
+      <nav id="toc" aria-label="Sections"></nav>
+      <div id="hud" class="hud"></div>
+      <div class="keys"><kbd>`</kbd> drop-down shell · <kbd>Tab</kbd> complete · <kbd>↑</kbd> history</div>
+    </aside>
+    <button id="toc-toggle" aria-label="Toggle contents">☰</button>
+
+    <main>
+      <header class="hero">
+        <div class="eyebrow">{{eyebrow}}</div>
+        <h1>{{headline}}</h1>
+        <p class="lede">{{lede}}</p>
+        <div class="hero-stats"><span>🖥 shared shell</span><span>🧭 step-through diagrams</span><span>🧪 labs</span><span id="quiz-score">✓ 0 quizzes</span></div>
+        {{hero}}
+      </header>
+
+      <div id="content">{{sections}}</div>
+
+      <footer class="foot">
+        <p>{{footer}}</p>
+        <p><button class="linkish" id="reset-all">reset simulated shell &amp; quiz progress</button></p>
+      </footer>
+    </main>
+  </div>
+
+  <div id="dock" aria-hidden="true">
+    <div class="dock-grip"><span>drop-down shell · shared with every terminal on the page</span><button id="dock-close" aria-label="Close shell">esc ✕</button></div>
+    <div class="term dock-term" data-title="{{shell_title}}"></div>
+  </div>
+  <button id="dock-fab" title="Open the shell (` key)">›_</button>
+
+  {{scripts}}
+</body>
+</html>

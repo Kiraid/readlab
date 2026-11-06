@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gateway API, Interactively</title>
+  <meta name="description" content="Interactive study companion for Kubernetes in Action (2nd ed.), chapter 13: routing traffic using the Gateway API.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="progress"></div>
+
+  <!-- shared arrowheads for every diagram -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk" d="M0 0 L10 5 L0 10 z"/></marker>
+      <marker id="arrow-tls" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-tls" d="M0 0 L10 5 L0 10 z"/></marker>
+      <marker id="arrow-bad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-bad" d="M0 0 L10 5 L0 10 z"/></marker>
+      <marker id="arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-accent" d="M0 0 L10 5 L0 10 z"/></marker>
+      <radialGradient id="glow" cx="50%" cy="50%" r="50%"><stop offset="0%" class="glow-in"/><stop offset="100%" class="glow-out"/></radialGradient>
+    </defs>
+  </svg>
+
+  <div class="layout">
+    <aside id="side">
+      <div class="brand"><span class="brand-mark">⎈</span><div><b>Gateway API, Interactively</b><small>Kubernetes in Action · ch. 13</small></div></div>
+      <nav id="toc" aria-label="Sections"></nav>
+      <div id="hud" class="hud"></div>
+      <div class="keys"><kbd>`</kbd> drop-down shell · <kbd>Tab</kbd> complete · <kbd>↑</kbd> history</div>
+    </aside>
+    <button id="toc-toggle" aria-label="Toggle contents">☰</button>
+
+    <main>
+      <header class="hero">
+        <div class="eyebrow">Kubernetes in Action, 2nd ed. · Chapter 13 · study companion</div>
+        <h1>Gateways, routes,<br><span>and who owns what.</span></h1>
+        <p class="lede">The successor to Ingress: <b>GatewayClasses</b>, <b>Gateways</b> and a family of <b>Route</b> objects for HTTP, TLS, TCP, UDP and gRPC, with Istio as the provider. Weighted splits, header and query matching, filters, TLS modes, and sharing one gateway across namespaces. Poke the simulated cluster as you read: every terminal on this page shares it.</p>
+        <div class="hero-stats"><span>🖥 shared shell</span><span>🧭 step-through diagrams</span><span>🧪 routing &amp; filter labs</span><span id="quiz-score">✓ 0 quizzes</span></div>
+        <figure class="hero-art" aria-label="Clients reach one Gateway on several listeners; HTTPRoute, TLSRoute and TCPRoute objects attached to it forward the traffic to services and pods">
+          <svg viewBox="0 0 1000 300" role="img">
+            <rect class="n-zone" x="378" y="18" width="612" height="266" rx="22"/>
+            <text class="lbl-xs t-muted" x="972" y="38" text-anchor="end">kubernetes cluster</text>
+            <g class="hero-dns"><rect class="badge" x="20" y="16" width="270" height="24" rx="12"/><text class="badge-t" x="155" y="32" text-anchor="middle">DNS  *.example.com → 172.18.255.200</text></g>
+            <!-- clients -->
+            <g>
+              <rect class="n-client" x="20" y="62" width="190" height="36" rx="10"/><text class="lbl-mono lbl-xs t-client" x="34" y="84">http://kiada.example.com</text>
+              <rect class="n-client" x="20" y="122" width="190" height="36" rx="10"/><text class="lbl-mono lbl-xs t-client" x="34" y="144">https://kiada.example.com</text>
+              <rect class="n-client" x="20" y="182" width="190" height="36" rx="10"/><text class="lbl-mono lbl-xs t-client" x="34" y="204">tls kiada.example.com:8443</text>
+              <rect class="n-client" x="20" y="242" width="190" height="36" rx="10"/><text class="lbl-mono lbl-xs t-client" x="34" y="264">nc 172.18.255.200 200</text>
+            </g>
+            <path class="edge-dim" d="M210 80 C 310 80, 330 137, 418 137"/>
+            <path class="edge-dim" d="M210 140 C 310 140, 330 163, 418 163"/>
+            <path class="edge-dim" d="M210 200 C 310 200, 330 189, 418 189"/>
+            <path class="edge-dim" d="M210 260 C 310 260, 330 215, 418 215"/>
+            <!-- gateway -->
+            <circle cx="480" cy="155" r="120" fill="url(#glow)"/>
+            <rect class="n-gtw gate" x="400" y="68" width="160" height="172" rx="20"/>
+            <text class="lbl-b t-gtw" x="480" y="94" text-anchor="middle" style="font-size:17px">Gateway</text>
+            <text class="lbl-mono lbl-sm" x="480" y="111" text-anchor="middle">172.18.255.200</text>
+            <rect class="badge" x="420" y="126" width="120" height="22" rx="11"/><text class="badge-t" x="480" y="141" text-anchor="middle">HTTP :80</text>
+            <rect class="badge" x="420" y="152" width="120" height="22" rx="11"/><text class="badge-t" x="480" y="167" text-anchor="middle">HTTPS :443</text>
+            <rect class="badge" x="420" y="178" width="120" height="22" rx="11"/><text class="badge-t" x="480" y="193" text-anchor="middle">TLS :8443</text>
+            <rect class="badge" x="420" y="204" width="120" height="22" rx="11"/><text class="badge-t" x="480" y="219" text-anchor="middle">TCP :200</text>
+            <!-- listeners to routes -->
+            <path class="edge-dim" d="M560 137 C 595 137, 600 70, 625 70"/>
+            <path class="edge-dim" d="M560 163 C 595 163, 600 70, 625 70"/>
+            <path class="edge-dim" d="M560 189 C 595 189, 600 150, 625 150"/>
+            <path class="edge-dim" d="M560 215 C 595 215, 600 230, 625 230"/>
+            <!-- routes -->
+            <g>
+              <rect class="n-route" x="625" y="45" width="150" height="50" rx="10"/><text class="lbl-b t-route" x="639" y="66">HTTPRoute</text><text class="lbl-mono lbl-xs t-muted" x="639" y="83">kiada.example.com</text>
+              <rect class="n-route" x="625" y="125" width="150" height="50" rx="10"/><text class="lbl-b t-route" x="639" y="146">TLSRoute</text><text class="lbl-mono lbl-xs t-muted" x="639" y="163">SNI passthrough</text>
+              <rect class="n-route" x="625" y="205" width="150" height="50" rx="10"/><text class="lbl-b t-route" x="639" y="226">TCPRoute</text><text class="lbl-mono lbl-xs t-muted" x="639" y="243">raw TCP stream</text>
+            </g>
+            <path class="edge-dim" d="M775 70 L 830 70"/>
+            <path class="edge-dim" d="M775 150 L 830 150"/>
+            <path class="edge-dim" d="M775 230 L 830 230"/>
+            <!-- services and pods -->
+            <g>
+              <rect class="n-svc" x="830" y="43" width="150" height="54" rx="12"/>
+              <text class="lbl-b t-svc" x="842" y="66">kiada</text><text class="lbl-mono lbl-xs t-muted" x="842" y="84">:80</text>
+              <rect class="n-pod hero-pod" x="898" y="59" width="22" height="22" rx="6"/><rect class="n-pod hero-pod d2" x="924" y="59" width="22" height="22" rx="6"/><rect class="n-pod hero-pod d3" x="950" y="59" width="22" height="22" rx="6"/>
+            </g>
+            <g>
+              <rect class="n-svc" x="830" y="123" width="150" height="54" rx="12"/>
+              <text class="lbl-b t-svc" x="842" y="146">kiada-stable</text><text class="lbl-mono lbl-xs t-muted" x="842" y="164">:443</text>
+              <rect class="n-pod hero-pod d2" x="950" y="139" width="22" height="22" rx="6"/>
+            </g>
+            <g>
+              <rect class="n-svc" x="830" y="203" width="150" height="54" rx="12"/>
+              <text class="lbl-b t-svc" x="842" y="226">test</text><text class="lbl-mono lbl-xs t-muted" x="842" y="244">:2000</text>
+              <rect class="n-pod hero-pod d3" x="950" y="219" width="22" height="22" rx="6"/>
+            </g>
+            <!-- packets: plain HTTP, TLS, TCP -->
+            <circle class="packet" r="5"><animateMotion dur="3.6s" repeatCount="indefinite" begin="0s" path="M210 80 C 310 80, 330 137, 418 137 L 560 137 C 595 137, 600 70, 625 70 L 905 70"/></circle>
+            <circle class="packet" r="4"><animateMotion dur="3.6s" repeatCount="indefinite" begin="-1.8s" path="M210 80 C 310 80, 330 137, 418 137 L 560 137 C 595 137, 600 70, 625 70 L 905 70"/></circle>
+            <circle class="packet-tls" r="5"><animateMotion dur="3.8s" repeatCount="indefinite" begin="-0.7s" path="M210 140 C 310 140, 330 163, 418 163 L 560 163 C 595 163, 600 70, 625 70 L 930 70"/></circle>
+            <circle class="packet-tls" r="5"><animateMotion dur="3.8s" repeatCount="indefinite" begin="-1.5s" path="M210 200 C 310 200, 330 189, 418 189 L 560 189 C 595 189, 600 150, 625 150 L 955 150"/></circle>
+            <circle class="packet-tls" r="4"><animateMotion dur="3.8s" repeatCount="indefinite" begin="-3.1s" path="M210 200 C 310 200, 330 189, 418 189 L 560 189 C 595 189, 600 150, 625 150 L 955 150"/></circle>
+            <circle class="packet" r="5"><animateMotion dur="4s" repeatCount="indefinite" begin="-2.2s" path="M210 260 C 310 260, 330 215, 418 215 L 560 215 C 595 215, 600 230, 625 230 L 955 230"/></circle>
+            <circle class="packet" r="4"><animateMotion dur="4s" repeatCount="indefinite" begin="-0.3s" path="M210 260 C 310 260, 330 215, 418 215 L 560 215 C 595 215, 600 230, 625 230 L 955 230"/></circle>
+          </svg>
+        </figure>
+      </header>
+
+      <div id="content"></div>
+
+      <footer class="foot">
+        <p>Written as a study companion to <i>Kubernetes in Action, Second Edition</i> (Lukša &amp; Conner, Manning). Explanations, diagrams and the simulator are original; read the book for the full text. The shell is a toy: outputs imitate kubectl, istioctl, curl and Envoy, but nothing here touches a real cluster.</p>
+        <p><button class="linkish" id="reset-all">reset simulated cluster &amp; quiz progress</button></p>
+      </footer>
+    </main>
+  </div>
+
+  <div id="dock" aria-hidden="true">
+    <div class="dock-grip"><span>drop-down shell · shared with every terminal on the page</span><button id="dock-close" aria-label="Close shell">esc ✕</button></div>
+    <div class="term dock-term" data-title="kiada@kind: ~/Chapter13  (drop-down)"></div>
+  </div>
+  <button id="dock-fab" title="Open the shell (` key)">›_</button>
+
+  <script src="js/files.js"></script>
+  <script src="js/yaml.js"></script>
+  <script src="js/sim.js"></script>
+  <script src="js/terminal.js"></script>
+  <script src="js/widgets.js"></script>
+  <script src="js/hud.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

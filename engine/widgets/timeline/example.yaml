@@ -1,0 +1,17 @@
+title: Round robin with a 4 ms quantum
+unit: ms
+lanes:
+  - { id: cpu, label: CPU }
+  - { id: q, label: ready queue }
+events:
+  - { lane: cpu, start: 0, end: 4, label: A, say: A runs first; B and C wait in the ready queue. }
+  - { lane: q, start: 0, end: 4, label: "B, C", role: queue }
+  - { lane: cpu, start: 4, end: 8, label: B, say: "A's quantum expired, so A goes to the back of the queue." }
+  - { lane: q, start: 4, end: 8, label: "C, A", role: queue }
+  - { lane: cpu, start: 8, end: 10, label: C, say: C needs only 2 ms and finishes before its quantum ends. }
+  - { lane: q, start: 8, end: 10, label: "A, B", role: queue }
+  - { lane: cpu, start: 10, end: 13, label: A, role: process, say: A finishes its last 3 ms. }
+  - { lane: cpu, start: 13, end: 15, label: B, say: B finishes. Every process got the CPU within 8 ms of asking. }
+marks:
+  - { at: 10, label: C done }
+summary: Shorter quanta mean faster response but more context switches.

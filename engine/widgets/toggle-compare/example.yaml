@@ -1,0 +1,22 @@
+title: Write-through or write-back cache?
+options:
+  - label: Write-through
+    diagram:
+      nodes:
+        app: process@0 "application"
+        cache: cache@1 "cache"
+        db: datastore@2 "database"
+      edges: [app > cache flow "write", cache > db flow "write now"]
+    summary: Every write goes to the cache and the database before it returns.
+    points: [Slower writes, "Nothing is lost if the cache dies", Database is always current]
+  - label: Write-back
+    diagram:
+      nodes:
+        app: process@0 "application"
+        cache: cache@1 "cache"
+        db: datastore@2 "database"
+      edges:
+        - app > cache flow "write"
+        - cache > db dim "later, in batches"
+    summary: Writes land in the cache; dirty entries are flushed later.
+    points: [Fast writes, "Unflushed writes are lost if the cache dies", Database lags behind]

@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["item", "unit"],
+  "properties": {
+    "title": { "type": "string", "maxLength": 80 },
+    "intro": { "type": "string", "maxLength": 240 },
+    "item": { "type": "string", "maxLength": 18, "description": "the thing that multiplies: Service, tenant, client" },
+    "unit": { "type": "string", "maxLength": 18, "description": "what each item needs: load balancer, connection, process" },
+    "shared": { "type": "string", "maxLength": 24, "description": "the shared alternative: Ingress, connection pool" },
+    "left_title": { "type": "string", "maxLength": 40 },
+    "right_title": { "type": "string", "maxLength": 40 },
+    "n": { "type": "object", "additionalProperties": false, "properties": {
+      "default": { "type": "integer", "minimum": 1, "maximum": 100 },
+      "max": { "type": "integer", "minimum": 2, "maximum": 100 },
+      "label": { "type": "string", "maxLength": 24 } } },
+    "cost": { "type": "object", "additionalProperties": false, "properties": {
+      "default": { "type": "number", "minimum": 0 },
+      "label": { "type": "string", "maxLength": 30 },
+      "prefix": { "type": "string", "maxLength": 3 },
+      "suffix": { "type": "string", "maxLength": 12 } } },
+    "note": { "type": "string", "maxLength": 240 }
+  }
+}

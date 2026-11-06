@@ -1,0 +1,1 @@
+{ "scripts": ["shell.js"], "handles": ["help", "clear", "ls", "cat", "history", "echo", "catchup", "reset"] }

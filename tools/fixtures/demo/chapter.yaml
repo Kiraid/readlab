@@ -1,0 +1,10 @@
+# Demo chapter for the builder tests. Content is written for this repo, not taken from a book.
+id: demo
+title: Format demo
+brand_mark: ◆
+brand_sub: builder test chapter
+eyebrow: Content format · every directive once
+headline: One page,<br><span>every block.</span>
+lede: A tiny chapter that uses each directive, so a build shows at a glance that the renderer and the engine agree.
+footer: Demo content written for the interactive-book repo.
+shell: { plugin: kubectl-ingress, user: kiada@kind, dir: ~/Chapter12, run_file: "kubectl apply -f {file}" }

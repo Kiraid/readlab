@@ -1,0 +1,17 @@
+[project]
+name = "readlab"
+version = "0.1.0"
+description = "Turn technical text into interactive study pages with a cost-measured agent pipeline."
+requires-python = ">=3.12"
+dependencies = [
+    "pdfplumber>=0.11",   # MIT: text spans with font name/size
+    "pypdf>=5.0",         # BSD: PDF outline (bookmarks) -> section page ranges
+    "pyyaml>=6.0",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

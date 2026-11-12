@@ -1,8 +1,7 @@
 # readlab
 
 Turns technical text (book chapters, articles, docs) into interactive study pages (diagrams, step-throughs, a simulated
-shell, quizzes, labs) with an LLM pipeline whose cost is measured per call. Background: `HANDOFF.md`.
-Build order: `GUIDE.md`.
+shell, quizzes, labs) with an LLM pipeline whose cost is measured per call.
 
 ## Layout
 
@@ -123,4 +122,4 @@ listings. The output opens with a double-click; `node engine/serve.mjs --content
 ## Copyright
 
 Source PDFs and anything extracted from them stay in `sources/` and are never committed. Pages explain
-concepts in original wording; see `HANDOFF.md` §10.
+concepts in original wording.

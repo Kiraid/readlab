@@ -2,6 +2,7 @@
 #   docker compose up -d --build        then open http://127.0.0.1:8080
 #   docker compose up -d db             just the database, for running the app from ./run.sh
 # Book files and job outputs live in ./sources (bind-mounted), so local runs and containers share them.
+# The database password comes from POSTGRES_PASSWORD in .env (see .env.example).
 name: readlab
 
 x-app: &app
@@ -9,7 +10,7 @@ x-app: &app
   image: readlab-app
   env_file: .env
   environment:
-    DATABASE_URL: postgresql+psycopg://readlab:readlab@db:5432/readlab
+    DATABASE_URL: postgresql+psycopg://readlab:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/readlab
   volumes:
     - ./sources:/app/sources
     - ./.cache:/app/.cache
@@ -23,7 +24,7 @@ services:
     image: postgres:17-alpine
     environment:
       POSTGRES_USER: readlab
-      POSTGRES_PASSWORD: readlab
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: readlab
     ports:
       - "127.0.0.1:5433:5432"

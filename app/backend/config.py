@@ -17,7 +17,18 @@ def _int(name: str, default: int) -> int:
         return default
 
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql+psycopg://readlab:readlab@127.0.0.1:5433/readlab")
+def _database_url() -> str:
+    """DATABASE_URL, else the compose database on this machine with POSTGRES_PASSWORD from .env."""
+    if os.environ.get("DATABASE_URL"):
+        return os.environ["DATABASE_URL"]
+    if not os.environ.get("POSTGRES_PASSWORD"):
+        raise RuntimeError("set POSTGRES_PASSWORD (or DATABASE_URL) in .env; see .env.example")
+    from urllib.parse import quote
+
+    return f"postgresql+psycopg://readlab:{quote(os.environ['POSTGRES_PASSWORD'], safe='')}@127.0.0.1:5433/readlab"
+
+
+DATABASE_URL = _database_url()
 DATA = ROOT / "sources"  # uploads/ and jobs/; the harness uses the same folders
 UPLOADS = DATA / "uploads"
 JOBS = DATA / "jobs"

@@ -107,4 +107,52 @@ test('values containing ": " are quoted when the body would not parse otherwise'
   assert.deepEqual(errs, []);
   assert.equal(spec.nodes[0].sub, 'full: N + 1 pointers');
   assert.equal(spec.edges[0].label, 'Host: x');
+  // an edge item is one plain scalar; its only ": " sits inside the quoted label
+  const quoted = 'nodes:\n  a: object@0,0 "pod"\n  b: controller@1,0 "rs" "controller: true"\nedges:\n  - a > b edge "kind: ReplicaSet, name: kiada"\n';
+  assert.throws(() => parse(quoted));
+  assert.equal(flow(repairYaml(quoted)).spec.edges[0].label, 'kind: ReplicaSet, name: kiada');
+});
+
+test('the YAML repair leaves flow maps alone and only quotes the line that needs it', async () => {
+  const { repairYaml } = await import('./render.mjs');
+  const body = 'lanes:\n  - { id: sjf, label: SJF }\n  - { id: rr, label: "RR" }\nevents:\n  - { lane: rr, start: 0, end: 1, say: "RR: A runs." }\ncaption: Two policies: RR wins on response\n';
+  assert.throws(() => parse(body));
+  const fixed = parse(repairYaml(body));
+  assert.deepEqual(fixed.lanes, [{ id: 'sjf', label: 'SJF' }, { id: 'rr', label: 'RR' }]);
+  assert.equal(fixed.caption, 'Two policies: RR wins on response');
+});
+
+test('comma splits inside flow maps are rejoined; one-key maps become strings where the schema wants text', async () => {
+  const { rejoinCommaSplits } = await import('./render.mjs');
+  const { coerceStrings, validate } = await import('./schema.mjs');
+  const nodes = parse('nodes: { waiter: process@0,1 "waiting thread", cpu: resource@1,1 "the only CPU" }');
+  assert.deepEqual(rejoinCommaSplits(nodes).nodes, { waiter: 'process@0,1 "waiting thread"', cpu: 'resource@1,1 "the only CPU"' });
+  const ev = parse('events:\n  - { lane: a, start: 0, end: 1, say: A runs, which spins until its slice ends. }\n');
+  assert.equal(rejoinCommaSplits(ev).events[0].say, 'A runs, which spins until its slice ends.');
+  assert.deepEqual(rejoinCommaSplits({ a: 'x', b: null }), { a: 'x', b: null });  // an ordinary empty key stays
+  const schema = { type: 'object', properties: { points: { type: 'array', items: { type: 'string' } } } };
+  const cfg = coerceStrings(parse('points:\n  - Root page: holds the keys\n  - plain point\n'), schema);
+  assert.deepEqual(cfg.points, ['Root page: holds the keys', 'plain point']);
+  assert.deepEqual(validate(cfg, schema), []);
+});
+
+test('the YAML repair quotes a value that runs on after a quoted phrase', async () => {
+  const { repairYaml } = await import('./render.mjs');
+  const body = 'points:\n  - Claim: "valuable data" demands care\n';
+  assert.throws(() => parse(body));
+  assert.deepEqual(parse(repairYaml(body)).points, [{ Claim: '"valuable data" demands care' }]);
+});
+
+test('curve-explorer: formulas are checked at build time with the widget\'s own parser, and never run as JS', async () => {
+  const { widgetCheck } = await import('./render.mjs');
+  const check = widgetCheck('curve-explorer');
+  const base = { x: { label: 'slice', min: 1, max: 100 }, y: { label: 'time' }, params: [{ id: 'n', min: 2, max: 10 }] };
+  assert.deepEqual(check({ ...base, curves: [{ label: 'avg', expr: '(n - 1) * x / 2 + max(0, log2(x))' }] }), []);
+  const bad = (expr) => check({ ...base, curves: [{ label: 'c', expr }] }).join(' ');
+  assert.match(bad('(n - 1) * q'), /unknown name "q"/);
+  assert.match(bad('alert(1)'), /unknown function "alert"/);
+  assert.match(bad('x.constructor'), /unexpected/);
+  assert.match(bad('(x + 1'), /expected "\)"/);
+  assert.match(check({ ...base, curves: [{ label: 'c' }] }).join(), /formula \(expr\) or the book's data/);
+  assert.match(check({ ...base, curves: [{ label: 'c', points: [[1, 2], [3]] }] }).join(), /points\[1\]: write \[x, y\]/);
 });

@@ -6,13 +6,17 @@
 //   paragraph   per source paragraph: share of its distinctive tokens found in the section (warning per thin one)
 //   inventory   every source listing used as :::code (error); commands, tables, figures, callouts (warnings)
 //   numbers     numbers in the prose that appear nowhere in the source or the chapter files (warning)
-//   budget      prose (without quizzes and recaps) 85–115% of the source's prose, or front matter `words: [min, max]` (warning)
+//   budget      the retelling (without quizzes, recaps and the writer's labelled example/analogy/underneath callouts)
+//               80–130% of the source's prose, or front matter `words: [min, max]` (warning)
 //   files       commands that name a file (-f X, cat X) must name a file in files/ (error)
 import { parseBlocks, parseSection } from './parse.mjs';
 
 export const COPY_RUN = 8;
 /** Prose length as a share of the source's prose: below the first is likely cut content, above the second is padding. */
-export const LENGTH_RATIO = [0.85, 1.15];
+export const LENGTH_RATIO = [0.8, 1.3];
+/** The writer's own teaching, marked as such on the page: not part of the retelling, so not measured against the source. */
+export const OWN_CALLOUTS = new Set(['example', 'analogy', 'underneath']);
+const isOwn = (n) => n.name === 'callout' && OWN_CALLOUTS.has(n.variant);
 
 /** Lowercase word tokens; numbers stay as tokens. */
 export function words(text) {
@@ -21,6 +25,7 @@ export function words(text) {
 
 const stripInline = (t) => String(t)
   .replace(/`[^`\n]*`/g, ' ')                 // inline code: identifiers may be verbatim
+  .replace(/\bhttps?:\/\/[^\s)>]+/g, ' ')     // URLs are addresses, not wording
   .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')    // links: keep the text
   .replace(/[*_#>|]/g, ' ');
 
@@ -66,7 +71,7 @@ export function copyRuns(outText, srcText, n = COPY_RUN) {
     const len = j - i + n;
     const toks = orig.slice(i, i + len);
     const namey = toks.slice(1).filter((t) => /^[A-Z]/.test(t) || /\d/.test(t)).length / Math.max(1, toks.length - 1);
-    runs.push({ at: i, len, names: namey >= 0.5, preview: a.slice(i, i + Math.min(6, len)).join(' ') + (len > 6 ? ' …' : '') });
+    runs.push({ at: i, len, names: namey >= 0.5, text: a.slice(i, i + len).join(' '), preview: a.slice(i, i + Math.min(6, len)).join(' ') + (len > 6 ? ' …' : '') });
     i = j;
   }
   const shared = hit.filter(Boolean).length;
@@ -210,14 +215,23 @@ export function checkSection(raw, { source = null, files = {} } = {}) {
   const prose = sectionProse(nodes);
   const all = sectionAllText(raw);
   metrics.words = words(prose).length;
-  // the retelling of the source, for the length check: quizzes and recaps are the page's own additions
-  metrics.retell_words = words(sectionProse(nodes.filter((n) => n.name !== 'quiz' && n.name !== 'recap'))).length;
+  // the retelling of the source, for the length check: quizzes, recaps and labelled teaching are the page's own
+  const ownProse = sectionProse(nodes.filter(isOwn));
+  metrics.retell_words = words(sectionProse(nodes.filter((n) => n.name !== 'quiz' && n.name !== 'recap' && !isOwn(n)))).length;
+  metrics.own_words = words(ownProse).length;
+  metrics.own_callouts = nodes.filter(isOwn).length;
 
   // files named in commands must exist
   for (const cmd of termCommands(ds)) {
     for (const m of cmd.matchAll(/(?:-f|cat|less|apply -f)\s+([^\s|;&]+)/g)) {
       const f = m[1];
       if (/^(https?:|\/|SETUP|-)/.test(f) || f.endsWith('/') || f in files) continue;
+      if (!/^[\w./-]+\.[a-z0-9]{1,5}$/i.test(f)) continue; // `-f '{{ .Format }}'`, `-f -`: not a file name
+      // the book runs a file it doesn't print (its name may be broken across lines: "pod.one-kiada-\ntoo-many.yaml")
+      if (source && sourceAllText(source).replace(/-\s+/g, '-').includes(f.split('/').pop())) {
+        warnings.push({ code: 'files', line: null, message: `command "${cmd}" names "${f}", which the source uses but doesn't print` });
+        continue;
+      }
       errors.push({ code: 'files', line: null, message: `command "${cmd}" names "${f}", which is not in the chapter's files/` });
     }
   }
@@ -232,8 +246,20 @@ export function checkSection(raw, { source = null, files = {} } = {}) {
   const { runs, overlap } = copyRuns(prose, src);
   metrics.copy_overlap = overlap;
   metrics.copy_runs = runs.length;
+  // program output the source prints in a code block (a compiler error, a log line) may be quoted as it is.
+  // Compared without 1-2 letter tokens, since prose drops inline code (`s`) that the code block keeps.
+  const long = (t) => ` ${t.split(' ').filter((w) => w.length > 2).join(' ')} `;
+  const output = long(words((source.blocks || []).filter((b) => b.kind === 'code').map((b) => b.text).join('\n')).join(' '));
+  const quotesOutput = (text) => { // the run is that output, give or take two words of the writer's own around it
+    const w = text.split(' ');
+    for (let cut = 0; cut <= 2; cut++) for (let l = 0; l <= cut; l++) {
+      if (output.includes(long(w.slice(l, w.length - (cut - l)).join(' ')))) return true;
+    }
+    return false;
+  };
   for (const r of runs) {
-    if (r.names) warnings.push({ code: 'copy-names', line: null, message: `${r.len} words match the source, mostly names or numbers ("${r.preview}"); fine if it is a list of facts` });
+    if (quotesOutput(r.text)) warnings.push({ code: 'copy-output', line: null, message: `${r.len} words match program output the source prints ("${r.preview}"); fine as a quote of that output` });
+    else if (r.names) warnings.push({ code: 'copy-names', line: null, message: `${r.len} words match the source, mostly names or numbers ("${r.preview}"); fine if it is a list of facts` });
     else errors.push({ code: 'copy', line: null, message: `${r.len} words in a row match the source ("${r.preview}"); rewrite in your own words` });
   }
 
@@ -274,7 +300,8 @@ export function checkSection(raw, { source = null, files = {} } = {}) {
   }
 
   // numbers
-  const stray = strayNumbers(prose, sourceAllText(source), Object.values(files).join('\n'), [meta.id, ...(String(meta.pages || '').split('-'))]);
+  // toy values in a labelled example are expected; numbers in the retelling must come from the source
+  const stray = strayNumbers(sectionProse(nodes.filter((n) => !isOwn(n))), sourceAllText(source), Object.values(files).join('\n'), [meta.id, ...(String(meta.pages || '').split('-'))]);
   if (stray.length) warnings.push({ code: 'numbers', line: null, message: `numbers not found in the source: ${stray.slice(0, 8).join(', ')} (check they are not invented)` });
 
   // budget

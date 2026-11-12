@@ -41,3 +41,22 @@ export function validate(value, schema, path = 'config') {
   }
   return errs;
 }
+
+/**
+ * Where the schema wants a string, a one-key map with a text value is that string split by YAML at ": "
+ * (`- Root page: holds the keys` reads as { "Root page": "holds the keys" }). Put it back together. Returns
+ * a new value; everything else is left for validate() to judge.
+ */
+export function coerceStrings(value, schema) {
+  if (!schema || value === null || value === undefined) return value;
+  const types = [].concat(schema.type || []);
+  if (types.includes('string') && value && typeof value === 'object' && !Array.isArray(value)) {
+    const entries = Object.entries(value);
+    if (entries.length === 1 && ['string', 'number'].includes(typeof entries[0][1])) return `${entries[0][0]}: ${entries[0][1]}`;
+  }
+  if (Array.isArray(value) && schema.items) return value.map((v) => coerceStrings(v, schema.items));
+  if (value && typeof value === 'object' && !Array.isArray(value) && schema.properties) {
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, coerceStrings(v, schema.properties[k])]));
+  }
+  return value;
+}

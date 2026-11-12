@@ -4,9 +4,28 @@ import { Marked } from 'marked';
 import { parse as parseYaml } from 'yaml';
 import { normalizeFlow, normalizeSequence } from './diagram.mjs';
 import { FormatError, parseBlocks, parseRanges, parseSection } from './parse.mjs';
-import { validate } from './schema.mjs';
+import { coerceStrings, validate } from './schema.mjs';
+import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const marked = new Marked({ gfm: true });
+
+// A widget may define check(config) -> [messages] next to render(): meaning the schema can't express. The
+// builder runs the widget's own code for it (engine/widgets/<name>/widget.js, loaded once), so the check and the
+// page can't disagree.
+const WIDGET_DIR = fileURLToPath(new URL('../../engine/widgets/', import.meta.url));
+const widgetChecks = new Map();
+export function widgetCheck(name) {
+  if (!widgetChecks.has(name)) {
+    const file = `${WIDGET_DIR}${name}/widget.js`;
+    const defs = {};
+    if (/^[\w-]+$/.test(name) && existsSync(file)) {
+      new Function('WIDGETS', readFileSync(file, 'utf8'))({ register: (n, def) => { defs[n] = def; } });
+    }
+    widgetChecks.set(name, defs[name]?.check || null);
+  }
+  return widgetChecks.get(name);
+}
 
 export const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -25,7 +44,10 @@ const CALLOUTS = {
   note: ['note', 'Note'], tip: ['tip', 'Tip'], warn: ['warn', 'Warning'], warning: ['warn', 'Warning'],
   definition: ['note', 'Definition'], important: ['warn', 'Important'], caution: ['warn', 'Caution'],
   sidebar: ['note', null],
+  // the writer's own teaching, marked so the reader always knows what is the author's and what isn't
+  example: ['ours', 'Example (not from the book)'], analogy: ['ours', 'Analogy'], underneath: ['ours under', 'One layer down'],
 };
+export const OWN_CALLOUTS = new Set(['example', 'analogy', 'underneath']);
 
 /**
  * The most common YAML slip in diagram and widget bodies: a value that contains ": " (a sub-label
@@ -34,23 +56,55 @@ const CALLOUTS = {
  */
 export function repairYaml(text) {
   return text.split('\n').map((line) => {
+    if (/^\s*(?:-\s+)?[{[]/.test(line)) return line; // a flow map/list (`- { id: a, label: A }`): YAML reads it fine
+    // a list item that is one plain scalar whose only ": " sits inside a quoted label: `- a > b flow "Host: x"`
+    const item = /^(\s*-\s+)([^\s'"{}[\]#|>&*!].*?)\s*$/.exec(line);
+    if (item && /:(\s|$)/.test(item[2]) && !/:(\s|$)/.test(item[2].replace(/"[^"]*"/g, '""'))) {
+      return `${item[1]}'${item[2].replace(/'/g, "''")}'`;
+    }
     const m = /^(\s*(?:-\s+)?)([^\s:'"{}[\]#][^:'"]*?):[ \t]+(.+?)\s*$/.exec(line);
     if (!m) return line;
     const v = m[3];
     if (/^["'{[|>&*!]/.test(v) && !/^"[^"]*"\s+\S/.test(v)) return line; // already quoted, a flow collection or a block scalar
-    if (!/:(\s|$)/.test(v) && !/\s#/.test(v)) return line;             // nothing YAML would misread
+    const trailing = /^"[^"]*"\s+\S/.test(v);                          // `"valuable data" demands care`
+    if (!/:(\s|$)/.test(v) && !/\s#/.test(v) && !trailing) return line; // nothing YAML would misread
     return `${m[1]}${m[2]}: '${v.replace(/'/g, "''")}'`;
   }).join('\n');
 }
 
+/**
+ * Inside a flow map (`{ a: 1, b: 2 }`) every comma ends a value, so `{ n: process@0,1 "label" }` and
+ * `{ say: A runs, which spins }` come back as a value cut short plus a key with no value ("1 \"label\"",
+ * "which spins"). Such a key (empty value, a space or a leading digit in it, right after a text value) is never
+ * meant: join it back onto the value before it. Seen in about one widget in five (2026-11-07 runs).
+ */
+export function rejoinCommaSplits(v) {
+  if (Array.isArray(v)) return v.map(rejoinCommaSplits);
+  if (!v || typeof v !== 'object') return v;
+  const out = {};
+  let prev = null;
+  for (const [k, x] of Object.entries(v)) {
+    if (x === null && prev !== null && typeof out[prev] === 'string' && /\s|^\d/.test(k)) {
+      out[prev] += /\d$/.test(out[prev]) && /^\d/.test(k) ? `,${k}` : `, ${k}`;
+      continue;
+    }
+    out[k] = rejoinCommaSplits(x);
+    prev = k;
+  }
+  return out;
+}
+
 function yamlBody(d, ctx) {
   try {
-    return parseYaml(d.body) ?? {};
+    return rejoinCommaSplits(parseYaml(d.body) ?? {});
   } catch (e) {
     try {
-      return parseYaml(repairYaml(d.body)) ?? {};
+      return rejoinCommaSplits(parseYaml(repairYaml(d.body)) ?? {});
     } catch (e2) {
-      ctx.error(`:::${d.name} body is not valid YAML: ${e.message.split('\n')[0]}`, d.line);
+      // report the line that still fails after the repair, quoted, so a fixer can find it among several blocks
+      const at = e2.linePos?.[0]?.line;
+      const bad = at ? d.body.split('\n')[at - 1]?.trim() : '';
+      ctx.error(`:::${d.name} body is not valid YAML: ${e2.message.split('\n')[0]}${bad ? ` — the line \`${bad}\`` : ''}`, d.line);
       return {};
     }
   }
@@ -185,10 +239,16 @@ const RENDER = {
   widget(d, ctx) {
     const name = d.variant;
     if (!name) { ctx.error('widget needs a name, e.g. ":::widget compare-scale"', d.line); return ''; }
-    const cfg = d.body.trim() ? yamlBody(d, ctx) : {};
+    let cfg = d.body.trim() ? yamlBody(d, ctx) : {};
+    if (ctx.catalog?.[name]) cfg = coerceStrings(cfg, ctx.catalog[name]);
     if (ctx.catalog) {
       if (!ctx.catalog[name]) ctx.error(`unknown widget "${name}" (catalog: ${Object.keys(ctx.catalog).join(', ')}); if nothing fits, use :::widget-request`, d.line);
-      else for (const m of validate(cfg, ctx.catalog[name])) ctx.error(`widget ${name}: ${m}`, d.line);
+      else {
+        const errs = validate(cfg, ctx.catalog[name]);
+        // the schema says what a config looks like; the widget's own check() what it means (curve formulas parse, ...)
+        if (!errs.length) errs.push(...(widgetCheck(name)?.(cfg) || []));
+        for (const m of errs) ctx.error(`widget ${name}: ${m}`, d.line);
+      }
     }
     const walk = (v, path) => {
       if (Array.isArray(v)) return v.map((x, i) => walk(x, `${path}[${i}]`));

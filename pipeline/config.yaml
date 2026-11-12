@@ -19,10 +19,16 @@ providers:
 
 # Model per node. `thinking: false` turns reasoning off (DeepSeek: thinking {type: disabled}).
 nodes:
-  write: {provider: deepseek, model: deepseek-flash, thinking: true, max_tokens: 32000}
-  fix:   {provider: deepseek, model: deepseek-flash, thinking: false, max_tokens: 8000}
+  probe:  {provider: deepseek, model: deepseek-flash, thinking: false, max_tokens: 3000}    # questions for the reader on upload, JSON
+  digest: {provider: deepseek, model: deepseek-flash, thinking: false, max_tokens: 4000}    # one per chunk, JSON
+  plan:   {provider: deepseek, model: deepseek-flash, thinking: true, max_tokens: 48000}    # one per chapter, JSON. v4-pro: 3.3x slower, 5.6x dearer, no better briefs (KiA ch14, 2026-11-06)
+  write:  {provider: deepseek, model: deepseek-flash, thinking: true, max_tokens: 32000}    # one per chunk
+  fix:    {provider: deepseek, model: deepseek-flash, thinking: false, max_tokens: 8000}    # only when the checker fails
+  correct: {provider: deepseek, model: deepseek-flash, thinking: true, max_tokens: 16000}  # only when the judge finds errors; thinks, to redo the arithmetic
+  judge:  {provider: deepseek, model: deepseek-flash, thinking: true, max_tokens: 16000}    # one per section, JSON. 8000: long DDIA sections spent it all thinking
 
 run:
   max_fix_rounds: 2          # validate -> fix -> validate, at most this many fixes
-  budget_usd: 2.00           # a run stops starting new cases once its ledger passes this
+  budget_usd: 2.00           # eval runs and jobs stop starting model calls once their ledger passes this
+  max_concurrency: 12        # parallel branches inside a job (DeepSeek has no hard rate limit; 12 covers most chapters at once)
   timeout_s: 600

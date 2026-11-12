@@ -133,14 +133,17 @@ def extract_lines(pdf_path: Path, pages: range, cfg: BookConfig) -> tuple[dict[i
 
     stats: Counter = Counter()
     out: dict[int, list[Line]] = {}
+    heights: dict[int, float] = {}
+    auto = getattr(cfg, "auto_margins", False)
     with pdfplumber.open(str(pdf_path)) as pdf:
         for i in pages:
             page = pdf.pages[i]
             h = page.height
+            heights[i] = h
             words = page.extract_words(x_tolerance=cfg.x_tolerance, y_tolerance=2, extra_attrs=["fontname", "size"])
             kept = []
             for w in words:
-                if w["top"] < cfg.margin_top * h or w["top"] > cfg.margin_bottom * h:
+                if not auto and (w["top"] < cfg.margin_top * h or w["top"] > cfg.margin_bottom * h):
                     stats["dropped_margin_words"] += 1
                     continue
                 kept.append(w)
@@ -153,7 +156,48 @@ def extract_lines(pdf_path: Path, pages: range, cfg: BookConfig) -> tuple[dict[i
                 lines.append(ln)
             out[i] = lines
             stats["lines"] += len(lines)
+    if auto:
+        drop_running_heads(out, heights, stats)
     return out, stats
+
+
+def drop_running_heads(pages: dict[int, list[Line]], heights: dict[int, float], stats: Counter, band: float = 0.13) -> None:
+    """For books we haven't calibrated: remove running headers, footers, page numbers and per-copy watermarks.
+    A line in the top or bottom band goes when its position and font recur on many pages and it looks like
+    furniture (short, carries a number, or repeats the same text), so a body line that happens to start a page
+    at the same height stays."""
+    import re
+
+    if len(pages) < 3:
+        return
+    def key(ln: Line, h: float):
+        where = "top" if ln.top < band * h else "bottom" if ln.top > (1 - band) * h else None
+        return (where, round(ln.top / 3), ln.spans[0].font, ln.spans[0].size) if where else None
+    pos_count: Counter = Counter()
+    text_count: Counter = Counter()
+    norm = lambda s: re.sub(r"\d+", "#", s.strip().lower())[:60]
+    for i, lines in pages.items():
+        seen_pos, seen_txt = set(), set()
+        for ln in lines:
+            k = key(ln, heights[i])
+            if k:
+                seen_pos.add(k)
+                seen_txt.add(norm(ln.plain))
+        pos_count.update(seen_pos)
+        text_count.update(seen_txt)
+    n = len(pages)
+    for i, lines in pages.items():
+        keep = []
+        for ln in lines:
+            k = key(ln, heights[i])
+            if k:
+                text = ln.plain.strip()
+                furniture = len(text) < 70 or bool(re.search(r"\d", text)) or text_count[norm(text)] >= 0.2 * n
+                if (pos_count[k] >= 0.3 * n and furniture) or text_count[norm(text)] >= 0.3 * n or text.isdigit():
+                    stats["dropped_running_heads"] += 1
+                    continue
+            keep.append(ln)
+        pages[i] = keep
 
 
 def font_histogram(pdf_path: Path, pages: range, cfg: BookConfig) -> list[tuple[str, float, int, str]]:

@@ -81,3 +81,23 @@ figure.diagram > svg.dsl-svg { margin: 0 auto; }
 .cs-unit-on { opacity: 1; } .cs-more { fill: var(--faint); font: 11px var(--mono); }
 .r-ok { fill: color-mix(in oklab, var(--ok) 14%, var(--panel)); stroke: var(--ok); }
 .rt-ok { fill: var(--ok); }
+
+/* curve-explorer */
+.cx-grid { stroke: var(--line); stroke-width: 1; }
+.cx-axis { stroke: var(--line2); stroke-width: 1.2; }
+.cx-tick { fill: var(--faint); font: 10.5px var(--mono); }
+.cx-alabel { fill: var(--muted); font: 600 11.5px var(--sans); }
+.cx-mark { stroke: var(--faint); stroke-dasharray: 4 4; }
+.cx-probe-line { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 3 3; }
+.cx-line { fill: none; stroke-width: 2.6; stroke-linejoin: round; }
+.cx-c0 { stroke: var(--pod); } .cx-c1 { stroke: var(--svc); } .cx-c2 { stroke: var(--proxy); } .cx-c3 { stroke: var(--store); }
+.cx-dot { fill: var(--bg2); stroke-width: 2.2; }
+.cx-key { display: inline-block; width: 12px; height: 3px; border-radius: 2px; vertical-align: middle; margin: 0 5px 2px 6px; }
+.cx-k0 { background: var(--pod); } .cx-k1 { background: var(--svc); } .cx-k2 { background: var(--proxy); } .cx-k3 { background: var(--store); }
+
+/* the writer's own teaching (example, analogy, one layer down): a dashed edge so it reads as "not the book" */
+.callout.ours { border-style: dashed; background: color-mix(in oklab, var(--ctrl) 6%, var(--panel)); }
+.callout.ours::before { background: var(--ctrl); }
+.callout.ours > b:first-child { color: var(--ctrl); }
+.callout.ours.under::before { background: var(--store); }
+.callout.ours.under > b:first-child { color: var(--store); }

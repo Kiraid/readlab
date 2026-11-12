@@ -64,6 +64,15 @@ Each case's drafts land in `sources/evals/<case>/out/<run>.v<N>.md`; the cost le
 `runs/<run>/` (`ledger.jsonl`, `report.md`). Calls are cached in `.cache/llm/`, so re-running only pays for
 prompts that changed (`--no-cache` to force). `--budget` caps a run's spend.
 
+## Running a chapter from a PDF
+
+Start the app (below), open **Upload**, drop a PDF, pick a chapter, and run. The job page shows each stage, every
+model call's tokens, cache hits and cost, and each section with its checks, judge scores, brief and digest.
+**Pipeline** explains the graph. Tick "dry run" to exercise everything without API calls. Job files live in
+`sources/jobs/<id>/` (the written sections are in `chapter/`). The last step builds them into one chapter page
+(`page/dist/index.html`), which the Library lists under the uploaded book, one entry per run; the job page links to it.
+Rebuild a finished job's page with `./run.sh python -m pipeline.harness.page sources/jobs/<id>`.
+
 ## The app (library + reader)
 
 FastAPI serves the library API, the chapter pages and the built frontend (React + Vite + TypeScript).

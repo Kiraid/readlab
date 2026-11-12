@@ -25,6 +25,23 @@ def est_tokens(text: str) -> int:
     return max(1, len(text) // 4)
 
 
+def schema_fields(schema: dict) -> str:
+    """'title ≤120, lanes*: [{id* ≤20, label ≤28}], ...': the fields with their limits, one level into lists of
+    objects. The checker enforces these, so a writer that never sees them overshoots and pays a fix round."""
+    def one(name: str, s: dict, required: list) -> str:
+        out = name + ("*" if name in required else "")
+        if s.get("maxLength"):
+            out += f" ≤{s['maxLength']}"
+        item = s.get("items") or {}
+        if s.get("type") == "array" and item.get("type") == "object" and item.get("properties"):
+            inner = ", ".join(one(k, v, item.get("required", [])) for k, v in item["properties"].items())
+            out += f": [{{{inner}}}" + (f", ≤{s['maxItems']} items" if s.get("maxItems") else "") + "]"
+        elif s.get("type") == "object" and s.get("properties"):  # x: {label* ≤40, min, max*}
+            out += ": {" + ", ".join(one(k, v, s.get("required", [])) for k, v in s["properties"].items()) + "}"
+        return out
+    return ", ".join(one(k, v, schema.get("required", [])) for k, v in schema.get("properties", {}).items())
+
+
 def system_prompt() -> str:
     parts = [SYSTEM_INTRO.read_text(encoding="utf-8").strip(), "", "# Format guide", "",
              (SKILLS / "FORMAT.md").read_text(encoding="utf-8").strip(), "", "# Pattern skills", ""]
@@ -37,8 +54,8 @@ def system_prompt() -> str:
               "unknown fields are errors.", ""]
     for d in sorted(p for p in WIDGETS.iterdir() if (p / "skill.md").exists()):
         schema = json.loads((d / "schema.json").read_text(encoding="utf-8"))
-        fields = ", ".join(f"{k}{'*' if k in schema.get('required', []) else ''}" for k in schema.get("properties", {}))
-        parts += [(d / "skill.md").read_text(encoding="utf-8").strip(), f"\nConfig fields (* = required): {fields}", ""]
+        parts += [(d / "skill.md").read_text(encoding="utf-8").strip(),
+                  f"\nConfig fields (* = required, ≤N = max characters): {schema_fields(schema)}", ""]
     return "\n".join(parts).strip() + "\n"
 
 
@@ -96,3 +113,63 @@ def writer_prompt(section: dict, files: dict[str, str], shell: str, brief: str) 
             "user_tokens_est": est_tokens(user),
         },
     }
+
+
+# ---------------------------------------------------------------- digest, plan, judge
+PROMPTS = ROOT / "pipeline" / "prompts"
+
+
+def digest_prompt(chunk: dict) -> dict:
+    """One call per chunk. The system part is identical for every chunk (cached); the user part is the chunk."""
+    f = chunk.get("features", {})
+    facts = {
+        "listings": [l.get("file") or f"listing {l.get('listing')}" for l in f.get("listings", [])],
+        "commands": [c["cmd"] for c in f.get("commands", [])][:20],
+        "figures": [x.get("figure") for x in f.get("figures", [])],
+        "callouts": f.get("callouts", {}),
+        "key_terms": f.get("key_terms", [])[:15],
+    }
+    user = "\n".join([
+        f"# Chunk {chunk['id']}: sections {', '.join(chunk['sections'])}", "",
+        "Counted by code (exact): " + json.dumps(facts, ensure_ascii=False), "",
+        "<source>", render_source(chunk["blocks"]), "</source>", "",
+        "Return the digest JSON for this chunk.",
+    ])
+    return {"system": (PROMPTS / "digest_system.md").read_text(encoding="utf-8"), "user": user}
+
+
+DEFAULT_READER = ("No reader notes. Assume a working software engineer who knows programming and the everyday tools of "
+                  "the trade, but not this chapter's topic.")
+
+
+def plan_prompt(chapter: dict, chunks: list[dict], digests: dict, reader: str | None = None) -> dict:
+    """One call per chapter: the reader, the outline and every chunk's digest and counts. Never the source text."""
+    parts = [f"# Chapter {chapter['id']}: {chapter['title']}", "", "## The reader", "", (reader or "").strip() or DEFAULT_READER,
+             "", "## Outline", ""]
+    parts += [f"- {s['id']} {s['title']}" for s in chapter["sections"]]
+    parts += ["", "## Chunks", ""]
+    for c in chunks:
+        f = c.get("features", {})
+        counts = {"prose_words": c.get("prose_words"), "listings": [l.get("file") for l in f.get("listings", [])],
+                  "commands": len(f.get("commands", [])), "tables": c.get("tables", 0), "figures": len(f.get("figures", [])),
+                  "callouts": f.get("callouts", {})}
+        parts += [f"### {c['id']} (sections {', '.join(c['sections'])}: {c['title']})",
+                  "counts: " + json.dumps(counts, ensure_ascii=False),
+                  "digest: " + json.dumps(digests.get(c["id"], {}), ensure_ascii=False), ""]
+    parts.append(f"Return the plan JSON with one entry for each of these chunks: {', '.join(c['id'] for c in chunks)}.")
+    return {"system": (PROMPTS / "planner_system.md").read_text(encoding="utf-8"), "user": "\n".join(parts)}
+
+
+def judge_prompt(section: dict, brief: str, written: str, findings: list[str]) -> dict:
+    rubric = (ROOT / "evals" / "rubric.md").read_text(encoding="utf-8")
+    rubric = rubric.split("\n", 1)[1] if rubric.startswith("#") else rubric  # drop the file's own title
+    system = (PROMPTS / "judge_system.md").read_text(encoding="utf-8").replace("{{rubric}}", rubric.strip())
+    user = "\n".join([
+        f"# Section {section['id']}: {section['title']}", "",
+        "## Source text", "", "<source>", render_source(section["blocks"]), "</source>", "",
+        "## Brief", "", brief.strip(), "",
+        "## Checker findings", "", "\n".join(findings) or "(none)", "",
+        "## Section file", "", "<section>", written.strip(), "</section>", "",
+        "Return the judgement JSON.",
+    ])
+    return {"system": system, "user": user}

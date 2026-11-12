@@ -23,6 +23,7 @@ sub-headings (often in small caps) become `####` in sentence case.
 | Block | Body | Notes |
 |---|---|---|
 | `:::callout note\|tip\|warn\|definition\|important\|caution\|sidebar` | Markdown | `title="..."` overrides the label |
+| `:::callout example\|analogy\|underneath` | Markdown | your own teaching, shown as not from the book: a small worked toy case; an analogy (end with where it stops working); one layer down. Not counted in the length check |
 | `:::code src=FILE hl=8,11-12` | empty | FILE must exist in the chapter's `files/`; `hl` = lines to highlight |
 | `:::snippet yaml\|http\|sql\|bash\|json\|text` | verbatim text | for partial configs, output fragments, requests |
 | `:::term catchup=12.2.1` | `$ command` lines | see "Terminals" below |

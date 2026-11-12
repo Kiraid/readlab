@@ -86,12 +86,12 @@ test('eval scorer: must checks pass/fail and the soft score reflects what the se
   mkdirSync(join(dir, 'out'), { recursive: true });
   cpSync(join(FIX, 'files'), join(dir, 'files'), { recursive: true });
   cpSync(join(FIX, 'source.json'), join(dir, 'source.json'));
-  writeFileSync(join(dir, 'case.yaml'), 'id: fixture\ntitle: Running the web app\nshell: basic\nbrief: "Teach it at the length of the source."\nexpect: { visual_min: 1, quiz_min: 1, widget_any: [timeline] }\n');
+  writeFileSync(join(dir, 'case.yaml'), 'id: fixture\ntitle: Running the web app\nshell: basic\nbrief: "Teach it at the length of the source."\nexpect: { visual_min: 1, quiz_min: 1 }\n');
   const good = scoreOutput(dir, join(FIX, 'good', '01-good.md'));
   assert.equal(good.pass, true);
   assert.deepEqual(good.must, { builds: true, no_copy: true, listings_shown: true, files_exist: true });
-  assert.equal(good.should.invited_widget, 0);
-  assert.ok(good.score >= 60 && good.score < 100, `score ${good.score}`);
+  assert.equal(good.should.invited_widget, undefined); // using a suggested widget is no longer scored
+  assert.ok(good.score >= 60, `score ${good.score}`);
   assert.equal(good.should.length, 1); // 111% of the source's prose
   const thin = scoreOutput(dir, join(FIX, 'thin', '01-thin.md'));
   assert.ok(thin.should.length < 0.5, `length ${thin.should.length}`);
@@ -178,4 +178,34 @@ test('a copied run that is mostly names or numbers is a warning, not an error', 
   assert.equal(runs.length, 1);
   assert.equal(runs[0].names, true);
   assert.equal(copyRuns('a slowdown in one part of the application spreads to the rest of it', 'a slowdown in one part of the application spreads to the rest of it').runs[0].names, false);
+});
+
+test('quoting program output the source prints is a warning, copying its prose is an error', () => {
+  const source = { id: '4.2', blocks: [
+    { kind: 'para', text: 'Rust rejects this with the message cannot borrow `s` as mutable more than once at a time, which protects you from data races.' },
+    { kind: 'code', text: 'error[E0499]: cannot borrow `s` as mutable more than once at a time\n --> src/main.rs:5:14' },
+    { kind: 'para', text: 'The restriction on mutable references lets Rust prevent data races at compile time in every program.' }] };
+  const quote = '---\nid: "4.2"\ntitle: Borrows\n---\nThe compiler answers: cannot borrow `s` as mutable more than once at a time. That stops races.\n';
+  const r = checkSection(quote, { source });
+  assert.equal(r.errors.filter((e) => e.code === 'copy').length, 0);
+  assert.ok(r.warnings.some((w) => w.code === 'copy-output'));
+  const prose = '---\nid: "4.2"\ntitle: Borrows\n---\nThe restriction on mutable references lets Rust prevent data races early.\n';
+  assert.ok(checkSection(prose, { source }).errors.some((e) => e.code === 'copy'));
+});
+
+test('the writer\'s labelled teaching is rendered as not-from-the-book and left out of length and number checks', async () => {
+  const { renderSection, newContext } = await import('./render.mjs');
+  const source = { id: '7.1', blocks: [{ kind: 'para', text: 'An atomic transaction either applies all of its writes or none of them, so a client can retry it safely after a fault.' }] };
+  const page = '---\nid: "7.1"\ntitle: Atomicity\n---\nA transaction applies every one of its writes, or nothing at all; after a fault the client can simply try again.\n\n'
+    + ':::callout example\nSay Ann moves 50 from account 1 to account 2 and the database crashes after the first of the 2 writes.\n:::\n\n'
+    + ':::callout analogy\nLike a shopping cart you either check out or abandon. It stops working once other people can see the cart.\n:::\n';
+  const r = checkSection(page, { source });
+  assert.equal(r.metrics.own_callouts, 2);
+  assert.ok(r.metrics.retell_words < 25 && r.metrics.own_words > 30, JSON.stringify(r.metrics));
+  assert.ok(!r.warnings.some((w) => w.code === 'numbers'), 'toy numbers in an example are not stray');
+  const ctx = newContext({ files: {}, file: 's.md', roles: {}, catalog: {} });
+  const html = renderSection(page, ctx).html;
+  assert.match(html, /class="callout ours"><b>Example \(not from the book\)<\/b>/);
+  assert.match(html, /class="callout ours"><b>Analogy<\/b>/);
+  assert.deepEqual(ctx.errors, []);
 });

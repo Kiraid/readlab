@@ -99,6 +99,9 @@ class ProviderError(RuntimeError):
     pass
 
 
+RETRY_STATUS = {429, 500, 502, 503, 504}
+
+
 # ---------------------------------------------------------------- providers
 
 def _deepseek(call: Call, cfg: dict) -> Result:
@@ -117,11 +120,20 @@ def _deepseek(call: Call, cfg: dict) -> Result:
     if call.json_mode:
         body["response_format"] = {"type": "json_object"}
     t0 = time.time()
-    try:
-        r = httpx.post(f"{cfg['base_url'].rstrip('/')}/chat/completions", json=body, timeout=600,
-                       headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"})
-    except httpx.HTTPError as e:
-        raise ProviderError(f"deepseek request failed: {e}") from e
+    # Transient failures (network down for a moment, 429, 5xx) are retried with backoff: one blip in WSL's network
+    # once cost a DDIA run four sections (2026-11-07). Anything else (400, 401, bad JSON) fails at once.
+    for attempt, wait in enumerate((5, 20, 60, None)):
+        try:
+            r = httpx.post(f"{cfg['base_url'].rstrip('/')}/chat/completions", json=body, timeout=600,
+                           headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"})
+            if r.status_code not in RETRY_STATUS:
+                break
+            err = f"deepseek HTTP {r.status_code}: {r.text[:400]}"
+        except httpx.TransportError as e:
+            err = f"deepseek request failed: {e}"
+        if wait is None:
+            raise ProviderError(f"{err} (after {attempt + 1} attempts)")
+        time.sleep(wait)
     if r.status_code != 200:
         raise ProviderError(f"deepseek HTTP {r.status_code}: {r.text[:400]}")
     data = r.json()

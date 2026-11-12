@@ -37,6 +37,10 @@ class Section:
 
 
 LEADING_NUM = re.compile(r"^\s*(?:chapter\s+)?\d+(?:\.\d+)*\.?\s*", re.I)
+# A chapter's citation list, when it isn't an outline section of its own: everything from here to the chapter's
+# end is skipped (DDIA prints ~1000 words of "[1] Author, Title…" after each Summary; the writer rightly skips
+# them, and length and coverage were then measured against them).
+END_MATTER = {"references", "bibliography"}
 
 
 def assign_sections(blocks: list[Block], rng: ChapterRange, cfg: BookConfig) -> tuple[list[Section], list[str]]:
@@ -55,6 +59,9 @@ def assign_sections(blocks: list[Block], rng: ChapterRange, cfg: BookConfig) -> 
         sections.append(Section(s.id, s.name, s.level))
 
     for b in blocks:
+        if b.kind in ("heading", "subheading") and norm(b.text) in END_MATTER \
+                and not any(norm(s.name) == norm(b.text) for s in rng.sections):
+            break
         if b.kind == "heading":
             m = HEADING_NUM.match(b.text)
             if m and m.group(1) in by_num and by_num[m.group(1)].id not in found:
@@ -72,6 +79,9 @@ def assign_sections(blocks: list[Block], rng: ChapterRange, cfg: BookConfig) -> 
             if title in extra:
                 name = extra[title]
                 sections.append(Section(f"{ch}.{title}", name, 2))
+                continue
+            if not rng.sections:  # no outline below this chapter: every heading opens a section
+                sections.append(Section(f"{ch}.{len(sections)}", re.sub(r"\s+", " ", LEADING_NUM.sub("", b.text)).strip(), 2))
                 continue
             b.kind = "subheading"
         sections[-1].blocks.append(b)

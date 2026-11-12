@@ -91,6 +91,16 @@ def test_kia_chapter_12_matches_the_book_outline():
     res = ingest_chapter(load_book("books/kia/book.yaml"), "12")
     ids = [s.id for s in res["sections"]]
     assert res["warnings"] == []
-    assert ids[:3] == ["12", "12.1", "12.1.1"] and ids[-1] == "12.summary" and len(ids) == 23
+    assert ids[:3] == ["12", "12.1", "12.1.1"] and res["sections"][-1].title == "Summary" and len(ids) == 23
     listings = [l for c in res["chunks"] for l in c["features"]["listings"]]
     assert len(listings) == 15 and all(l["yaml"] for l in listings)
+
+
+def test_a_reference_list_after_the_summary_is_not_chapter_text():
+    rng = chapter_range(OUTLINE, "12", 690)
+    blocks = [Block("heading", "12.1 Introducing Ingresses"), Block("para", "intro"), Block("heading", "Summary"),
+              Block("item", "s"), Block("heading", "References"), Block("para", "[1] A. Author: A Paper, 2001."),
+              Block("para", "[2] B. Author: Another, 2002.")]
+    sections, _ = assign_sections(blocks, rng, CFG)
+    assert [s.id for s in sections] == ["12", "12.1", "12.summary"]
+    assert [b.text for b in sections[-1].blocks] == ["s"]

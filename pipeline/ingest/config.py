@@ -47,6 +47,7 @@ class BookConfig:
     chunk_min_tokens: int = 250
     chunk_max_tokens: int = 3000
     x_tolerance: float = 1.5  # max gap (pt) inside a word; tightly set books need less
+    auto_margins: bool = False  # uncalibrated uploads: find running heads by repetition instead of fixed bands
     raw: dict = field(default_factory=dict)
 
     def role(self, font: str, size: float) -> str:

@@ -14,6 +14,7 @@ def kinds(blocks):
 def test_hyphenation_is_undone_only_before_lowercase():
     assert join_text("a recon-", "ciled state") == "a reconciled state"
     assert join_text("the Ingress-", "Nginx controller") == "the Ingress- Nginx controller"
+    assert join_text("in the file `pod.one-kiada-`", "`too-many.yaml`. Apply") == "in the file `pod.one-kiada-too-many.yaml`. Apply"
 
 
 def test_wrapped_lines_join_and_an_indent_starts_a_new_paragraph():

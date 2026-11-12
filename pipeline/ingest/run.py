@@ -19,7 +19,7 @@ from .blocks import build_blocks
 from .chunk import make_chunks
 from .config import BookConfig
 from .features import annotate_listings, chunk_features, difficulty, term_candidates, prose_text
-from .outline import chapter_range, read_outline
+from .outline import chapter_range, read_outline, whole_document
 from .pdf_lines import extract_lines
 from .sections import render_block, render_section
 
@@ -31,7 +31,10 @@ def pdf_page_count(path: Path) -> int:
 
 def ingest_chapter(cfg: BookConfig, chapter: str, chapter_id: str | None = None) -> dict:
     outline = read_outline(cfg.source, cfg.out_dir)
-    rng = chapter_range(outline, chapter, last_pdf_page=10**6, chapter_id=chapter_id)
+    if chapter == "__all__" or not outline:
+        rng = whole_document(cfg.title, pdf_page_count(cfg.source) - 1, chapter_id or "1")
+    else:
+        rng = chapter_range(outline, chapter, last_pdf_page=10**6, chapter_id=chapter_id)
     if rng.last_page == 10**6:
         rng.last_page = pdf_page_count(cfg.source) - 1
     pages, stats = extract_lines(cfg.source, range(rng.first_page, rng.last_page + 1), cfg)
@@ -58,7 +61,8 @@ def ingest_chapter(cfg: BookConfig, chapter: str, chapter_id: str | None = None)
 
     out = cfg.out_dir / (f"ch{int(rng.id):02d}" if rng.id.isdigit() else f"ch-{rng.id}")
     write_outputs(out, cfg, rng, sections, chunks, chunk_rows, stats, warnings, section_features)
-    return {"out": out, "sections": sections, "chunks": chunk_rows, "stats": stats, "warnings": warnings, "range": rng}
+    return {"out": out, "sections": sections, "chunks": chunk_rows, "chunk_objs": chunks, "stats": stats,
+            "warnings": warnings, "range": rng}
 
 
 def write_outputs(out: Path, cfg, rng, sections, chunks, chunk_rows, stats, warnings, section_features=None) -> None:

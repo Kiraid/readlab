@@ -57,6 +57,8 @@ def join_text(a: str, b: str) -> str:
     """Join two wrapped lines, undoing end-of-line hyphenation."""
     if not a:
         return b
+    if re.search(r"[-/_]`$", a) and b.startswith("`"):  # inline code wrapped at a hyphen or slash: one name
+        return a[:-1] + b[1:]
     if a.endswith("-") and len(a) > 1 and a[-2].isalpha() and b[:1].islower():
         return a[:-1] + b
     return a + " " + b

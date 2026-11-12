@@ -84,3 +84,96 @@ def test_deepseek_without_key_fails_clearly(monkeypatch):
     monkeypatch.setattr(llm, "load_env", lambda *a, **k: None)
     with pytest.raises(llm.ProviderError, match="no API key"):
         llm.call(Call(node="write", provider="deepseek", model="deepseek-flash", system="s", user="u"), use_cache=False)
+
+
+def test_parse_json_tolerates_fences_stray_text_and_trailing_commas():
+    from pipeline.harness.chapter import parse_json
+    assert parse_json('```json\n{"a": 1}\n```') == {"a": 1}
+    assert parse_json('Here: {"a": {"b": [1, 2,], "c": "x",}, "d": 2,} done') == {"a": {"b": [1, 2], "c": "x"}, "d": 2}
+
+
+def test_deepseek_retries_transient_failures(monkeypatch):
+    import httpx
+
+    from pipeline.llm import core
+
+    calls = []
+
+    class Resp:
+        status_code = 200
+        text = ""
+
+        def json(self):
+            return {"choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}], "usage": {"prompt_tokens": 3, "completion_tokens": 1}}
+
+    def post(*a, **k):
+        calls.append(1)
+        if len(calls) == 1:
+            raise httpx.ConnectError("[Errno 101] Network is unreachable")
+        if len(calls) == 2:
+            r = Resp(); r.status_code = 503; r.text = "busy"; return r
+        return Resp()
+
+    monkeypatch.setattr(httpx, "post", post)
+    monkeypatch.setattr(core.time, "sleep", lambda s: None)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test")
+    c = core.Call(node="judge", provider="deepseek", model="deepseek-flash", system="s", user="u")
+    res = core._deepseek(c, {"base_url": "https://example.invalid", "key_env": "DEEPSEEK_API_KEY"})
+    assert res.text == "ok" and len(calls) == 3
+
+    calls.clear()
+    monkeypatch.setattr(httpx, "post", lambda *a, **k: (_ for _ in ()).throw(httpx.ConnectError("down")))
+    import pytest
+    with pytest.raises(core.ProviderError, match="after 4 attempts"):
+        core._deepseek(c, {"base_url": "https://example.invalid", "key_env": "DEEPSEEK_API_KEY"})
+
+
+def test_copy_problems_name_the_exact_shared_words():
+    from pipeline.harness.section import describe_errors, shared_phrase
+    source = "A controller watches two kinds of object and reconciles them by creating or deleting pods as needed."
+    mine = "Each controller reconciles them by creating or deleting pods whenever counts drift."
+    assert shared_phrase(mine, source) is None  # 7 shared words: under the 8-word threshold
+    mine = "The loop reconciles them by creating or deleting pods as needed, all day long."
+    assert shared_phrase(mine, source) == "reconciles them by creating or deleting pods as needed"
+    score = {"issues": ['error [copy] 9 words in a row match the source ("reconciles them by creating or deleting …"); rewrite in your own words']}
+    [p] = describe_errors(score, f"---\nid: x\n---\n{mine}\n", source)
+    assert "«The loop reconciles" in p and '"reconciles them by creating or deleting pods as needed"' in p
+
+
+def test_a_plan_cut_off_at_its_token_limit_keeps_the_complete_briefs():
+    from pipeline.harness.chapter import salvage_plan
+    cut = '{"chapter_summary": "Recovery, in order.", "sections": [{"chunk": "c01", "brief": "A"}, {"chunk": "c02", "brief": "B, with {braces}"}, {"chunk": "c03", "brief": "Hal'
+    p = salvage_plan(cut)
+    assert p["chapter_summary"] == "Recovery, in order."
+    assert [s["chunk"] for s in p["sections"]] == ["c01", "c02"]
+    assert salvage_plan("not json at all") == {"chapter_summary": "", "sections": []}
+
+
+def test_briefs_carry_the_chapter_design_and_this_sections_part():
+    from pipeline.harness.chapter import brief_text
+    design = {"reader": "Knows SQL, new to concurrency.", "goal": "Predict which anomalies an isolation level allows.",
+              "running_example": {"name": "seat booking", "what": "two users book the last seat", "chunks": ["c03"]},
+              "misconceptions": [{"wrong": "a transaction locks everything it reads", "right": "it depends on the isolation level", "chunk": "c03"}],
+              "layers_down": [{"concept": "commit", "beneath": "a write is durable once it is in the log on disk", "chunk": "c02"}],
+              "mechanisms": [{"name": "lost update", "chunk": "c03", "build": "timeline of two read-modify-write cycles"}]}
+    e = {"chunk": "c03", "role": "mechanism", "brief": "Teach the lost update.", "teach": {"analogy": "two editors saving one file"},
+         "skills": ["faithful-coverage"], "visuals": ["timeline of the race"]}
+    b = brief_text(e, design)
+    for want in ("The reader: Knows SQL", "goal: Predict", "seat booking", "use it for this section's concrete case",
+                 "role: mechanism", "Confront this misconception", "locks everything it reads", "callout analogy",
+                 "Build for the reader to work through: lost update", "80-130%"):
+        assert want in b, want
+    assert "One layer down" not in b  # that one belongs to c02
+    other = brief_text({"chunk": "c01", "role": "context", "brief": "Intro."}, design)
+    assert "reuse it only where it helps" in other and "Visuals: none needed" in other
+
+
+def test_reader_notes_from_the_probe_answers():
+    from pipeline.harness.jobs import reader_text
+    t = reader_text({"note": "backend engineer", "answers": [
+        {"question": "Which are you comfortable with?", "purpose": "prerequisites", "answer": ["SQL", "indexes"]},
+        {"question": "What happens if two people book the last seat?", "purpose": "misconception: lost update", "answer": "The database stops it"},
+        {"question": "Skipped one", "answer": ""}]})
+    assert "In the reader's own words: backend engineer" in t
+    assert "-> SQL, indexes  [prerequisites]" in t and "[misconception: lost update]" in t and "Skipped one" not in t
+    assert reader_text(None) == "" and reader_text("plain line") == "plain line"

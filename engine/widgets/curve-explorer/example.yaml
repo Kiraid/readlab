@@ -1,0 +1,13 @@
+title: Round robin with N jobs that arrive together
+intro: Every job waits for one slice of each job ahead of it before its first turn. Drag the slice and the job count, then move the probe.
+x: { label: time slice, min: 1, max: 100, unit: ms }
+y: { label: response time, unit: ms }
+params:
+  - { id: n, label: jobs in the queue, min: 2, max: 10, step: 1, default: 3 }
+  - { id: c, label: switch cost, min: 0, max: 5, step: 0.5, default: 1, unit: " ms" }
+curves:
+  - { label: average response time, expr: "(n - 1) * (x + c) / 2" }
+  - { label: last job's first turn, expr: "(n - 1) * (x + c)" }
+probe: 10
+marks: [{ at: 10, label: a typical slice }]
+note: A longer slice wastes less time on switches but every job waits longer for its first turn.

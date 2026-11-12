@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -24,7 +25,7 @@ def tmp_library(tmp_path, monkeypatch):
       - {{id: "1", title: One, path: "{ch.as_posix()}"}}
       - {{id: "2", title: Two, path: "{(tmp_path / 'missing').as_posix()}"}}
 """, encoding="utf-8")
-    monkeypatch.setattr(main, "load_library", lambda: library.load_library(lib))
+    monkeypatch.setattr(main, "load_library", lambda: library.load_library(lib, tmp_path / "jobs"))
     yield
 
 
@@ -51,3 +52,21 @@ def test_chapter_files_are_served_and_traversal_is_blocked():
     assert client.get("/read/demo/1/../secret.txt").status_code == 404
     assert client.get("/read/demo/1/%2e%2e/secret.txt").status_code == 404
     assert client.get("/read/demo/2/").status_code == 404
+
+
+def test_finished_pipeline_runs_are_listed_as_chapters(tmp_path):
+    jobs = tmp_path / "jobs"
+    for jid, passes in (("20261101-1", True), ("20261102-2", False)):
+        jd = jobs / jid
+        (jd / "page" / "dist").mkdir(parents=True)
+        (jd / "page" / "dist" / "index.html").write_text('<section class="major" id="s"></section>', encoding="utf-8")
+        (jd / "job.json").write_text(json.dumps({"upload": "u1", "file": "Some Book, 2nd Edition (Ann Lee, Bo Ma) (site.example)-10-20.pdf",
+                                                 "chapter_title": "3 Things", "chapter_id": "3", "started": 0}), encoding="utf-8")
+        (jd / "report.json").write_text(json.dumps({"sections": {"c01": {"pass": passes}}, "judges": {"c01": {"overall": 4}},
+                                                    "cost_usd": 0.1}), encoding="utf-8")
+    (jobs / "20261103-3" / "page").mkdir(parents=True)  # a run whose page was never built is not listed
+    [book] = library.job_books(jobs)
+    assert (book.id, book.title, book.authors) == ("upload-u1", "Some Book", ["Ann Lee", "Bo Ma"])
+    assert [c.id for c in book.chapters] == ["3-02-2", "3-01-1"]  # chapter number + run tag, newest first
+    assert all(c.available and c.made == "pipeline" for c in book.chapters)
+    assert "0/1 sections pass" in book.chapters[0].summary and "judge 4.0/5" in book.chapters[0].summary

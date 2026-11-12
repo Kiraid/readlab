@@ -124,8 +124,35 @@ The old step numbers below (5–12) still describe each piece in detail; this is
    as goldens (private when derived from a book).
 2. **Model comparisons on the 5 cases** (old 8 + 10): `deepseek-v4-pro` (`--model deepseek-v4-pro`), flash with
    thinking off (`--no-thinking`), later Gemini; same cases, same checks, compare cost and quality.
-3. **Finish the harness** (old 6 + 7): digest, plan and chapter-build nodes and their prompts, so a whole chapter
-   runs from the PDF with planner-written briefs instead of the hand-written eval briefs.
+3. **Finish the harness** (old 6 + 7). **Done 2026-11-07**: the chapter graph (`pipeline/harness/chapter.py`:
+   ingest → digest × N → plan → per chunk write/validate/fix then judge → build → finalize), digest, planner and
+   judge prompts, auto-calibrated ingestion for any uploaded PDF (fonts learnt from outline titles, captions and
+   listing annotations; running heads; no-outline fallback), upload/job API with live status, app pages (Upload,
+   job view, Pipeline diagram), and the build step (`pipeline/harness/page.py`): each run becomes one chapter page,
+   listed in the Library under its upload. Dry-run mode runs the whole graph with stub replies.
+   First real runs (KiA ch14, 2026-11-06/07): $0.12 for the chapter; after the ingest/checker fixes and the planner
+   moved to flash, 12/13 sections pass, judge 4.2/5.
+   **Cross-book test, 2026-11-07** (full chapters, run two at a time with fixes between sets): OSTEP Scheduling +
+   Locks, Rust ch4 + ch16, Database Internals ch2 + ch5, DDIA ch5 + ch7. 89–100% of sections pass per chapter
+   (after fixes), judge 4.0–4.4, $0.10–0.25 and 4–8 minutes a chapter. Fixed along the way: timeline playback after
+   pause, label limits now shown to the writer, YAML repairs (flow maps, comma splits, quoted-then-text values),
+   quoted program output allowed by the copy check, the fixer told the exact copied words, provider retries,
+   planner/judge token limits (+ salvaging a cut-off plan), reference lists dropped at ingest, printed chapter
+   numbers for unnumbered outlines. **Open:** DDIA's first drafts copy far more than other books (150–200 runs a
+   chapter vs 20–70); a richer plan adds widgets without raising the judge's score (watch page density); one
+   widget request so far (`growth-curves`: plot a metric while sliders change the inputs), built as `curve-explorer`.
+   **Teaching redesign, 2026-11-12:** the planner designs the chapter for a reader (a probe on upload asks 3-4
+   questions about the chapter; the answers become reader notes): goal, a running example, misconceptions to
+   confront, layers to peel, 2-4 mechanisms worth an interactive build, and a role per section (mechanism, concept,
+   system, procedure, argument, context) that decides its visuals; no visual quotas. Writers keep every point of
+   the author's but may reorder and add labelled teaching (`:::callout example|analogy|underneath`, shown as not
+   from the book, outside the 80-130% length band). First comparison (DDIA ch7, OSTEP ch7): all sections pass,
+   visuals halved, decorative widgets gone; but the writer's own examples and quizzes carried 2 errors the judge
+   caught. **Correction step (same day):** the judge now returns an `errors` list (wrong statements, wrong quiz keys,
+   examples whose arithmetic fails, visuals that show something false); each section with errors gets one
+   correction round (the `correct` node, thinking on), is re-checked (reverted if it breaks a passing section) and
+   re-judged. On DDIA ch7: 6 errors in 4 sections corrected, both known ones included, 1 still flagged; about
+   +$0.02 a chapter.
 4. **Judge and calibration** (old 9): an LLM judge with the rubric, pairwise against goldens; you score a few to
    check it agrees.
 5. **Claude baseline + ladder** (old 11): the "N× cheaper at equal quality" numbers (needs Anthropic credits).

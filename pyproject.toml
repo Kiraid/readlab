@@ -11,6 +11,7 @@ dependencies = [
     "uvicorn[standard]>=0.30",
     "httpx>=0.27",        # provider calls
     "langgraph>=0.2",     # the pipeline graph
+    "python-multipart>=0.0.9",  # file uploads in the API
 ]
 
 [dependency-groups]

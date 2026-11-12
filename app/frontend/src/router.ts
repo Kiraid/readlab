@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
 
-// A tiny history router: three routes don't need a library.
-//   /                      library
-//   /books/:book           one book
-//   /books/:book/:chapter  reader
+// A tiny history router.
+//   /                      library            /upload          upload a document, pick a chapter, start a job
+//   /books/:book           one book           /jobs/:id        a job's live progress
+//   /books/:book/:chapter  reader             /pipeline        how the pipeline works
 export type Route =
   | { name: 'library' }
   | { name: 'book'; book: string }
   | { name: 'reader'; book: string; chapter: string }
+  | { name: 'upload' }
+  | { name: 'job'; job: string }
+  | { name: 'pipeline' }
   | { name: 'missing' };
 
 export function parse(path: string): Route {
@@ -15,6 +18,9 @@ export function parse(path: string): Route {
   if (parts.length === 0) return { name: 'library' };
   if (parts[0] === 'books' && parts.length === 2) return { name: 'book', book: parts[1] };
   if (parts[0] === 'books' && parts.length === 3) return { name: 'reader', book: parts[1], chapter: parts[2] };
+  if (parts[0] === 'upload' && parts.length === 1) return { name: 'upload' };
+  if (parts[0] === 'jobs' && parts.length === 2) return { name: 'job', job: parts[1] };
+  if (parts[0] === 'pipeline' && parts.length === 1) return { name: 'pipeline' };
   return { name: 'missing' };
 }
 

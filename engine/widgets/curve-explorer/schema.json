@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["x", "y", "curves"],
+  "properties": {
+    "title": { "type": "string", "maxLength": 120 },
+    "intro": { "type": "string", "maxLength": 240 },
+    "x": { "type": "object", "additionalProperties": false, "required": ["label", "max"],
+      "properties": { "label": { "type": "string", "maxLength": 40 }, "min": { "type": "number" }, "max": { "type": "number" },
+        "unit": { "type": "string", "maxLength": 10 } } },
+    "y": { "type": "object", "additionalProperties": false, "required": ["label"],
+      "properties": { "label": { "type": "string", "maxLength": 40 }, "min": { "type": "number" }, "max": { "type": "number" },
+        "unit": { "type": "string", "maxLength": 10 } } },
+    "params": { "type": "array", "maxItems": 4, "items": { "type": "object", "additionalProperties": false, "required": ["id", "min", "max"],
+      "properties": { "id": { "type": "string", "maxLength": 16 }, "label": { "type": "string", "maxLength": 40 },
+        "min": { "type": "number" }, "max": { "type": "number" }, "step": { "type": "number", "minimum": 0 },
+        "default": { "type": "number" }, "unit": { "type": "string", "maxLength": 10 } } } },
+    "curves": { "type": "array", "minItems": 1, "maxItems": 4, "items": { "type": "object", "additionalProperties": false, "required": ["label"],
+      "properties": { "label": { "type": "string", "maxLength": 32 }, "expr": { "type": "string", "maxLength": 200 },
+        "points": { "type": "array", "minItems": 2, "maxItems": 40, "items": { "type": "array" } } } } },
+    "probe": { "type": "number" },
+    "marks": { "type": "array", "maxItems": 6, "items": { "type": "object", "additionalProperties": false, "required": ["at"],
+      "properties": { "at": { "type": "number" }, "label": { "type": "string", "maxLength": 24 } } } },
+    "note": { "type": "string", "maxLength": 300 }
+  }
+}

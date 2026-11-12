@@ -84,7 +84,10 @@ class ChapterRange:
 
 
 def find_chapter(entries: list[Entry], selector: str) -> int:
-    """Index of the chapter: exact number first, then the first title containing the selector."""
+    """Index of the chapter: "#12" is an outline index; otherwise exact number first, then the first title
+    containing the selector."""
+    if selector.startswith("#") and selector[1:].isdigit() and int(selector[1:]) < len(entries):
+        return int(selector[1:])
     for i, e in enumerate(entries):
         if e.number == selector:
             return i
@@ -93,6 +96,12 @@ def find_chapter(entries: list[Entry], selector: str) -> int:
         if low in e.title.lower():
             return i
     raise KeyError(f"chapter {selector!r} not found in the PDF outline")
+
+
+def whole_document(title: str, last_pdf_page: int, chapter_id: str = "1") -> ChapterRange:
+    """No outline (an article, a paper, a docs export): the whole file is one chapter, and its sections come
+    from the headings found in the text."""
+    return ChapterRange(Entry(0, title, 0), chapter_id, [], 0, last_pdf_page)
 
 
 def chapter_range(entries: list[Entry], selector: str, last_pdf_page: int, chapter_id: str | None = None) -> ChapterRange:

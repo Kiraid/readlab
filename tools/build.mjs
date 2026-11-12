@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 // Build a chapter into ONE self-contained HTML file (opens with a double-click, no server).
 //
-//   node tools/build.mjs <chapter-dir> [--out <dir>] [--allow-errors]
+//   node tools/build.mjs <chapter-dir> [--out <dir>] [--allow-errors] [--split]
+//
+// --split also writes the paged build: assets/ (one cached CSS + JS bundle), parts/NN.html (a few sections each),
+// manifest.json (parts and their sections) and search.json (each section's plain text, for the app's search).
 //
 // <chapter-dir>/chapter.yaml   page chrome + shell + role aliases (see tools/fixtures/demo/chapter.yaml)
 // <chapter-dir>/sections/*.md  sections in file-name order (Markdown + ::: directives)
@@ -9,6 +12,7 @@
 //
 // Writes <out>/index.html, plus <out>/widget-requests.json when a section asked for a widget that
 // isn't in the catalog yet.
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -98,13 +102,17 @@ export function buildChapter(dir) {
     id: chapter.id || basename(dir), sections: sections.map((s) => s.slug), roles,
     shell: { user: shell.user, dir: shell.dir, title: shell.title, run_file: shell.run_file, handles: plug.handles },
   };
-  const scripts = [
-    inlineScript(`window.CHAPTER = ${JSON.stringify(data)};\nwindow.FILES = ${JSON.stringify(files, null, 1)};\nwindow.CANNED = ${JSON.stringify(canned, null, 1)};`),
-    ...CORE_SCRIPTS.map((p) => join(ENGINE, p)),
-    ...[...widgets].filter((w) => catalog[w]).sort().map((w) => join(ENGINE, 'widgets', w, 'widget.js')),
-    ...plug.scripts,
-    join(ENGINE, 'js', 'app.js'),
-  ].map((s) => (s.startsWith('<script>') ? s : inlineScript(readFileSync(s, 'utf8')))).join('\n  ');
+  const code = [
+    `window.CHAPTER = ${JSON.stringify(data)};\nwindow.FILES = ${JSON.stringify(files, null, 1)};\nwindow.CANNED = ${JSON.stringify(canned, null, 1)};`,
+    ...[
+      ...CORE_SCRIPTS.map((p) => join(ENGINE, p)),
+      ...[...widgets].filter((w) => catalog[w]).sort().map((w) => join(ENGINE, 'widgets', w, 'widget.js')),
+      ...plug.scripts,
+      join(ENGINE, 'js', 'app.js'),
+    ].map((p) => readFileSync(p, 'utf8')),
+  ];
+  const scripts = code.map(inlineScript).join('\n  ');
+  const css = STYLES.map((p) => readFileSync(join(ENGINE, p), 'utf8')).join('\n');
 
   const template = readFileSync(join(ENGINE, 'template.html'), 'utf8');
   const fields = {
@@ -118,19 +126,87 @@ export function buildChapter(dir) {
     hero: chapter.hero || '',
     footer: chapter.footer || '',
     shell_title: esc(shell.title || `${shell.user || 'you@book'}: ${shell.dir || '~'}`),
-    styles: `<style>\n${STYLES.map((p) => readFileSync(join(ENGINE, p), 'utf8')).join('\n')}\n</style>`,
+    styles: `<style>\n${css}\n</style>`,
     sections: '\n' + sections.map((s) => s.html).join('\n'),
     scripts,
   };
-  const html = template.replace(/\{\{(\w+)\}\}/g, (m, k) => (k in fields ? fields[k] : m));
-  return { html, errors, warnings, sections, widgets: [...widgets], canned, requests };
+  const fill = (f) => template.replace(/\{\{(\w+)\}\}/g, (m, k) => (k in f ? f[k] : m));
+  const html = fill(fields);
+  return { html, errors, warnings, sections, widgets: [...widgets], canned, requests, split: { fill, fields, css, code } };
+}
+
+const PART_WORDS = 2000; // a part is roughly ten minutes of reading
+const MIN_PART_WORDS = 700;
+const textOf = (html) => html.replace(/<(script|style|svg)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]+>/g, ' ')
+  .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+  .replace(/\s+/g, ' ').trim();
+
+/** Group sections into parts: a major section starts a part once the current one has some length, and a long run
+ *  of subsections is cut once it passes the target. */
+export function groupParts(sections) {
+  const parts = [];
+  let cur = null;
+  for (const s of sections) {
+    const major = s.html.startsWith('<section class="major"');
+    if (!cur || (cur.words >= MIN_PART_WORDS && (major || cur.words >= PART_WORDS || cur.words + s.words > 1.6 * PART_WORDS))) {
+      cur = { sections: [], words: 0 };
+      parts.push(cur);
+    }
+    cur.sections.push(s);
+    cur.words += s.words;
+  }
+  return parts;
+}
+
+/** The paged build: one cached CSS and JS bundle for the chapter, a small HTML file per part, and what the app needs
+ *  to list, paginate and search them (manifest.json, search.json). */
+export function writeSplit(res, out) {
+  const { fill, fields, css, code } = res.split;
+  const hash = (s) => createHash('sha256').update(s).digest('hex').slice(0, 10);
+  const js = code.join('\n;\n'); // one classic script: the engine's files share top-level names, as inline scripts do
+  const names = { css: `chapter.${hash(css)}.css`, js: `chapter.${hash(js)}.js` };
+  mkdirSync(join(out, 'assets'), { recursive: true });
+  mkdirSync(join(out, 'parts'), { recursive: true });
+  writeFileSync(join(out, 'assets', names.css), css);
+  writeFileSync(join(out, 'assets', names.js), js);
+  const secs = res.sections.filter((s) => s.slug).map((s) => {
+    const text = textOf(s.html);
+    return { ...s, text, words: text ? text.split(' ').length : 0 };
+  });
+  const parts = groupParts(secs);
+  const manifest = { version: 1, assets: names, parts: [] };
+  const search = [];
+  parts.forEach((p, i) => {
+    const n = i + 1;
+    const file = `parts/${String(n).padStart(2, '0')}.html`;
+    const first = n === 1;
+    const last = n === parts.length;
+    const html = fill({
+      ...fields,
+      styles: `<link rel="stylesheet" href="../assets/${names.css}">`,
+      scripts: `<script src="../assets/${names.js}"></script>`,
+      sections: '\n' + p.sections.map((s) => s.html).join('\n'),
+      ...(first ? {} : { eyebrow: '', headline: '', lede: '', hero: '' }),
+      ...(last ? {} : { footer: '' }),
+    }).replace('<header class="hero">', first ? '<header class="hero">' : '<header class="hero" hidden>');
+    writeFileSync(join(out, file), html);
+    manifest.parts.push({
+      n, file, words: p.words,
+      sections: p.sections.map((s) => ({ id: s.slug, num: String(s.meta.id ?? ''), title: String(s.meta.title ?? ''),
+        level: s.html.startsWith('<section class="major"') ? 'major' : 'sub' })),
+    });
+    for (const s of p.sections) search.push({ part: n, id: s.slug, num: String(s.meta.id ?? ''), title: String(s.meta.title ?? ''), text: s.text });
+  });
+  writeFileSync(join(out, 'manifest.json'), JSON.stringify(manifest, null, 1));
+  writeFileSync(join(out, 'search.json'), JSON.stringify(search));
+  return manifest;
 }
 
 function main(argv) {
   const args = argv.slice(2);
   const dir = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--out');
   if (!dir) {
-    console.error('usage: node tools/build.mjs <chapter-dir> [--out <dir>] [--allow-errors]');
+    console.error('usage: node tools/build.mjs <chapter-dir> [--out <dir>] [--allow-errors] [--split]');
     return 2;
   }
   const oi = args.indexOf('--out');
@@ -145,6 +221,7 @@ function main(argv) {
   mkdirSync(out, { recursive: true });
   writeFileSync(join(out, 'index.html'), res.html);
   if (res.requests.length) writeFileSync(join(out, 'widget-requests.json'), JSON.stringify(res.requests, null, 2));
+  if (args.includes('--split')) console.log(`split into ${writeSplit(res, out).parts.length} part(s)`);
   console.log(`${basename(resolve(dir))}: ${res.sections.length} sections, ${Object.keys(res.canned).length} canned commands, ` +
     `widgets: ${res.widgets.join(', ') || 'none'}${res.requests.length ? `, ${res.requests.length} widget request(s)` : ''} -> ${join(out, 'index.html')} (${Math.round(res.html.length / 1024)} KB)`);
   return 0;

@@ -66,22 +66,43 @@ prompts that changed (`--no-cache` to force). `--budget` caps a run's spend.
 
 ## Running a chapter from a PDF
 
-Start the app (below), open **Upload**, drop a PDF, pick a chapter, and run. The job page shows each stage, every
-model call's tokens, cache hits and cost, and each section with its checks, judge scores, brief and digest.
-**Pipeline** explains the graph. Tick "dry run" to exercise everything without API calls. Job files live in
-`sources/jobs/<id>/` (the written sections are in `chapter/`). The last step builds them into one chapter page
-(`page/dist/index.html`), which the Library lists under the uploaded book, one entry per run; the job page links to it.
+Sign in, open **Upload** and drop a PDF (a book, or an article that becomes one page). The upload reads the outline,
+the cover (first page) and the words per page; no model runs yet. On the book page, **Generate** a chapter: a few
+optional questions tailor it to the reader, then it goes into the Postgres job queue and a worker runs the graph.
+Progress streams to the page over server-sent events (readers see stages like *Ingesting, Planning, Writing,
+Judging*; admins also see models, cost and every event, and can tick "dry run"). Job files live in
+`sources/jobs/<id>/`; the last step builds the page in parts (`page/dist/parts/*.html` + one cached asset bundle).
 Rebuild a finished job's page with `./run.sh python -m pipeline.harness.page sources/jobs/<id>`.
 
-## The app (library + reader)
+## The app
 
-FastAPI serves the library API, the chapter pages and the built frontend (React + Vite + TypeScript).
-No database yet: books and chapters are listed in `app/library.yaml`, each chapter pointing at a folder on disk.
+FastAPI (`app/backend`) serves the API, the chapter pages and the built frontend (`app/frontend`, React + Vite).
+Postgres holds users, sessions, documents, chapters (status, parts, counts), jobs (the queue) and their events,
+reading progress and the full-text search index. Everything is private to its owner; `admin` only adds the run
+details (models, costs, events, every job in the queue). Readers get the default models, a per-job budget cap and
+an allowance of `READLAB_WORD_QUOTA` source words per `READLAB_QUOTA_DAYS` (default 30,000 per 30 days).
+
+With Docker (in WSL): the API on http://127.0.0.1:8080, a worker, and Postgres (host port 5433).
 
 ```bash
-cd app/frontend && npm install && npm run build      # Windows: builds app/frontend/dist
-./run.sh uvicorn app.backend.main:app --host 0.0.0.0 --port 8000    # WSL: then open http://127.0.0.1:8000
+docker compose up -d --build
+docker compose run --rm api python -m app.backend.cli create-admin --email you@example.com
 ```
+
+Locally, with Postgres from compose:
+
+```bash
+docker compose up -d db
+./run.sh python -m app.backend.cli migrate
+./run.sh python -m app.backend.cli create-admin --email you@example.com   # password: READLAB_ADMIN_PASSWORD or asked
+./run.sh uvicorn app.backend.main:app --host 0.0.0.0 --port 8000           # the API
+./run.sh python -m app.backend.worker                                      # the queue worker (--drain: exit when empty)
+cd app/frontend && npm install && npm run build                            # or: READLAB_API=http://127.0.0.1:8000 npm run dev
+```
+
+`cli import-legacy --email you@example.com` moves the old files-only library (sources/uploads, sources/jobs,
+app/library.yaml) into the database; `cli reindex` rebuilds every ready chapter's parts and search text. Tests use
+a separate `readlab_test` database on the same server.
 
 Use `127.0.0.1`, not `localhost`, from Windows: `localhost` tries IPv6 first and WSL only forwards IPv4, which
 costs ~200 ms per request. For frontend work, `npm run dev` (port 5173) proxies `/api` and `/read` to the backend.

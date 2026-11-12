@@ -3,7 +3,8 @@
     sources/jobs/<id>/page/chapter.yaml      page chrome (title, lede from the plan's chapter summary, shell)
     sources/jobs/<id>/page/sections/*.md     the written sections, in order, tidied for the builder
     sources/jobs/<id>/page/files/*           every listing the sections can show or run
-    sources/jobs/<id>/page/dist/index.html   tools/build.mjs output: one self-contained page
+    sources/jobs/<id>/page/dist/index.html   tools/build.mjs output: one self-contained page, plus the paged build
+                                             (parts/, assets/, manifest.json, search.json) the app reads from
     sources/jobs/<id>/page/build.json        what the build reported
 
 Tidying, so independently written sections build as one page:
@@ -111,7 +112,7 @@ def build_page(job: Path) -> dict:
     extract = next(iter(sorted((job / "ingest").glob("*/extract.json"))), None)
     subprocess.run(["node", str(ROOT / "tools" / "validate.mjs"), str(page), "--fix", "--json", str(page / "validate.json"),
                     *(["--source", str(extract)] if extract else [])], capture_output=True, text=True, timeout=120, cwd=ROOT)
-    proc = subprocess.run(["node", str(ROOT / "tools" / "build.mjs"), str(page), "--out", str(page / "dist"), "--allow-errors"],
+    proc = subprocess.run(["node", str(ROOT / "tools" / "build.mjs"), str(page), "--out", str(page / "dist"), "--allow-errors", "--split"],
                           capture_output=True, text=True, timeout=120, cwd=ROOT)
     lines = [l for l in proc.stderr.splitlines() if l.strip()]
     errors = [l for l in lines if not l.startswith("warning:") and "nothing written" not in l]

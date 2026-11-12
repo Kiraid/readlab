@@ -1,0 +1,17 @@
+# Book files, job outputs and caches are mounted at run time, never baked into the image.
+sources/
+.cache/
+runs/
+.env
+.env.*
+!.env.example
+
+.git/
+.claude/
+**/node_modules/
+app/frontend/dist/
+**/__pycache__/
+.pytest_cache/
+.venv/
+tests/
+evals/

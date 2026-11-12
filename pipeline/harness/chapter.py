@@ -80,12 +80,26 @@ class BudgetExceeded(RuntimeError):
 
 # ---------------------------------------------------------------- job bookkeeping
 
+# Called after every event and status change as hook(job_dir, kind, row) with kind "event" or "status"; the app's
+# worker mirrors progress into its database here. A failing hook never stops the job.
+HOOKS: list = []
+
+
+def _run_hooks(job: Path, kind: str, row: dict) -> None:
+    for hook in HOOKS:
+        try:
+            hook(job, kind, row)
+        except Exception:  # noqa: BLE001
+            traceback.print_exc()
+
+
 def emit(job_dir: str | Path, stage: str, msg: str, **data) -> None:
     job = Path(job_dir)
     row = {"ts": time.time(), "stage": stage, "msg": msg, **data}
     with _lock:
         with (job / "events.jsonl").open("a", encoding="utf-8") as f:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    _run_hooks(job, "event", row)
 
 
 def set_status(job_dir: str | Path, **changes) -> None:
@@ -95,6 +109,7 @@ def set_status(job_dir: str | Path, **changes) -> None:
         cur.update(changes)
         cur["updated"] = time.time()
         p.write_text(json.dumps(cur, indent=1), encoding="utf-8")
+    _run_hooks(Path(job_dir), "status", cur)
 
 
 def spent(job_dir: str | Path) -> float:
